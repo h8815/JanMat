@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply antialiased text-slate-900 bg-slate-50;
+    font-family: 'Public Sans', sans-serif;
+  }
+}
+
+.bg-tricolor {
+  background-image: url('/assets/images/tricolor-bg.jpg');
+  background-size: cover;
+  background-position: center;
+}
+
+.card-shadow {
+  box-shadow: 0 6px 20px rgba(7, 12, 34, 0.08);
+}
