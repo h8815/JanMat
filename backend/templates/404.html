@@ -1,0 +1,58 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>404 - Page Not Found</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body,
+      html {
+        height: 100%;
+        margin: 0;
+        font-family: 'Poppins', sans-serif;
+      }
+      .img-container img {
+        max-width: 80%;
+        height: auto;
+      }
+      .opps-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        height: 100%;
+        padding: 15px
+      }
+      .oops-button {
+        display: inline-block;
+        margin-bottom: 20px;
+        text-decoration: none;
+        color: #fff !important;
+        padding: 10px 20px;
+        border-radius: 20px;
+        transition: background-color 0.3s;
+        background-color: #f48120;
+      }
+      .oops-button:hover {
+        background-color: #d66e15;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="opps-container">
+      <div class="img-container">
+        <!-- Using Django static tag for the image -->
+        <img src="{% static 'assets/images/oops.gif' %}" alt="Oops" class="img-fluid w-100">
+      </div>
+      <h3 style="font-weight: 700; color: #000; margin-top: 10px;">404 - PAGE NOT FOUND</h3>
+      <p style="font-size: 1rem; color: #555;">The page you are looking for might have been removed<br>had its name changed or is temporarily unavailable.</p>
+      <!-- Link back to root (which might also be 404 if no view, but user requested 'GO TO HOMEPAGE') -->
+      <!-- Ideally this points to the FRONTEND homepage, which is usually on port 80. -->
+      <!-- But this is the backend 404. If the user hits backend directly, they probably expect to stay there or go to API root? -->
+      <!-- Given the context, this is a generic 404. I'll just link to "/" which is the relative root. -->
+      <a href="/" class="oops-button">GO TO HOMEPAGE</a>
+    </div>
+  </body>
+</html>
