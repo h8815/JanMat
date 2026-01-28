@@ -16,17 +16,14 @@ import OperatorList from '../../components/admin/OperatorList';
 import FraudLogTable from '../../components/admin/FraudLogTable';
 import Settings from '../../components/admin/Settings';
 
-// Placeholder for Audit
-const AuditLogTable = () => (
-    <div className="bg-white rounded-lg border border-slate-200 p-8 text-center">
-        <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-        <h3 className="text-lg font-bold text-slate-700">Audit Logs</h3>
-        <p className="text-slate-500">System-wide audit trail is safe in database. UI view coming soon.</p>
-    </div>
-);
+import AuditLogTable from '../../components/admin/AuditLogTable';
+// Removed placeholder AuditLogTable
 
 const AdminDashboard = () => {
     const { user, logout } = useAuth();
+    const [chartPeriod, setChartPeriod] = useState('24h');
+    const [chartStats, setChartStats] = useState({ labels: [], data: [] });
+
     const [activeTab, setActiveTab] = useState('dashboard');
     const [currentTime, setCurrentTime] = useState(new Date().toLocaleString());
     const [loading, setLoading] = useState(true);
@@ -36,7 +33,7 @@ const AdminDashboard = () => {
         total_fraud_alerts: 0,
         verifications_today: 0
     });
-    
+
     // New state for extended dashboard
     const [recentFraudLogs, setRecentFraudLogs] = useState([]);
     const [boothStatuses, setBoothStatuses] = useState([]);
@@ -54,11 +51,11 @@ const AdminDashboard = () => {
                     axios.get('/auth/admin/fraud-logs/'),
                     axios.get('/auth/admin/operators/')
                 ]);
-                
+
                 setStats(statsRes.data);
-                setRecentFraudLogs(fraudRes.data.slice(0, 5)); // Top 5
-                setBoothStatuses(opsRes.data.slice(0, 4)); // Top 4 for sidebar
-                
+                setRecentFraudLogs(fraudRes.data.slice(0, 5));
+                setBoothStatuses(opsRes.data.slice(0, 4));
+
             } catch (error) {
                 console.error("Failed to fetch dashboard data", error);
             } finally {
@@ -70,6 +67,20 @@ const AdminDashboard = () => {
             fetchData();
         }
     }, [activeTab]);
+
+    // Separate effect for Chart to avoid reloading everything
+    useEffect(() => {
+        const fetchChart = async () => {
+            if (activeTab !== 'dashboard') return;
+            try {
+                const res = await axios.get(`/auth/admin/voter-stats-chart/?period=${chartPeriod}`);
+                setChartStats(res.data);
+            } catch (err) {
+                console.error("Chart fetch error", err);
+            }
+        };
+        fetchChart();
+    }, [activeTab, chartPeriod]);
 
     const handleExport = async () => {
         try {
@@ -91,21 +102,27 @@ const AdminDashboard = () => {
 
     // ... (Charts data)
     const chartData = {
-        labels: ['10 AM', '11 AM', '12 PM', '1 PM', '2 PM', '3 PM', '4 PM', '5 PM', '6 PM'],
+        labels: chartStats.labels && chartStats.labels.length > 0 ? chartStats.labels : ['No Data'],
         datasets: [
             {
                 label: 'Verified Voters',
-                data: [stats.verifications_today, 0, 0, 0, 0, 0, 0, 0, 0], // dynamic later
-                borderColor: '#0B3D91',
+                data: chartStats.data && chartStats.data.length > 0 ? chartStats.data : [0],
+                borderColor: '#4F46E5', // Indigo-600
+                borderWidth: 3,
                 backgroundColor: (context) => {
                     const ctx = context.chart.ctx;
-                    const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-                    gradient.addColorStop(0, 'rgba(11, 61, 145, 0.4)');
-                    gradient.addColorStop(1, 'rgba(11, 61, 145, 0.0)');
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                    gradient.addColorStop(0, 'rgba(79, 70, 229, 0.5)'); // Indigo-600 with opacity
+                    gradient.addColorStop(1, 'rgba(79, 70, 229, 0.05)');
                     return gradient;
                 },
                 fill: true,
-                tension: 0.4,
+                tension: 0.4, // Smooth curve
+                pointRadius: 4,
+                pointBackgroundColor: '#fff',
+                pointBorderColor: '#4F46E5',
+                pointBorderWidth: 2,
+                pointHoverRadius: 6,
             },
         ],
     };
@@ -113,10 +130,43 @@ const AdminDashboard = () => {
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { display: false } },
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1E293B',
+                titleColor: '#F8FAFC',
+                bodyColor: '#F8FAFC',
+                padding: 12,
+                cornerRadius: 8,
+                displayColors: false,
+            }
+        },
         scales: {
-            y: { beginAtZero: true, grid: { borderDash: [5, 5] } },
-            x: { grid: { display: false } }
+            y: {
+                beginAtZero: true,
+                grid: {
+                    borderDash: [5, 5],
+                    color: '#F1F5F9'
+                },
+                ticks: {
+                    font: { size: 11 },
+                    color: '#64748B'
+                }
+            },
+            x: {
+                grid: { display: false },
+                ticks: {
+                    font: { size: 11 },
+                    color: '#64748B',
+                    maxRotation: 0,
+                    autoSkip: true,
+                    maxTicksLimit: 8
+                }
+            }
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index',
         },
     };
 
@@ -150,12 +200,12 @@ const AdminDashboard = () => {
                                     <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
                                         <div className="flex justify-between items-center mb-6">
                                             <h3 className="font-bold text-slate-800 flex items-center gap-2">
-                                                <TrendingUp className="w-4 h-4" /> Verified Voters (per hour)
+                                                <TrendingUp className="w-4 h-4" /> Verified Voters
                                             </h3>
                                             <div className="flex gap-2">
-                                                 <span className="px-2 py-1 bg-slate-900 text-white text-xs rounded font-bold">24h</span>
-                                                 <span className="px-2 py-1 bg-white border text-slate-500 text-xs rounded hover:bg-slate-50 cursor-pointer">7d</span>
-                                                 <span className="px-2 py-1 bg-white border text-slate-500 text-xs rounded hover:bg-slate-50 cursor-pointer">30d</span>
+                                                <button onClick={() => setChartPeriod('24h')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '24h' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-500 hover:bg-slate-50'}`}>24h</button>
+                                                <button onClick={() => setChartPeriod('7d')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '7d' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-500 hover:bg-slate-50'}`}>7d</button>
+                                                <button onClick={() => setChartPeriod('30d')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '30d' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-500 hover:bg-slate-50'}`}>30d</button>
                                             </div>
                                         </div>
                                         <div className="h-64">
@@ -186,7 +236,7 @@ const AdminDashboard = () => {
                                                     </div>
                                                 ))
                                             )}
-                                            
+
                                             <button onClick={() => setActiveTab('operators')} className="w-full text-center text-xs font-bold text-janmat-blue hover:underline mt-2">
                                                 View all booths
                                             </button>
@@ -199,11 +249,11 @@ const AdminDashboard = () => {
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="font-bold text-slate-800 text-lg">Recent Fraud Logs</h3>
                                         <div className="flex gap-2">
-                                             <button className="px-3 py-1 border rounded text-xs text-slate-600 hover:bg-slate-50">Export CSV</button>
-                                             <button onClick={() => setActiveTab('fraud')} className="px-3 py-1 bg-janmat-blue text-white rounded text-xs font-bold hover:bg-janmat-hover">View all fraud logs</button>
+                                            {/* <button className="px-3 py-1 border rounded text-xs text-slate-600 hover:bg-slate-50">Export CSV</button> */}
+                                            <button onClick={() => setActiveTab('fraud')} className="px-3 py-1 bg-janmat-blue text-white rounded text-xs font-bold hover:bg-janmat-hover">View all fraud logs</button>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm text-left">
                                             <thead className="text-xs text-slate-400 uppercase border-b">
@@ -218,7 +268,7 @@ const AdminDashboard = () => {
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
                                                 {recentFraudLogs.length === 0 ? (
-                                                     <tr><td colSpan="6" className="py-4 text-center text-slate-500">No recent fraud alerts.</td></tr>
+                                                    <tr><td colSpan="6" className="py-4 text-center text-slate-500">No recent fraud alerts.</td></tr>
                                                 ) : (
                                                     recentFraudLogs.map((log) => (
                                                         <tr key={log.id} className="hover:bg-slate-50">

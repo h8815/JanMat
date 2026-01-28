@@ -561,6 +561,28 @@ def export_admin_report(request):
             elements.append(t_fraud)
         else:
             elements.append(Paragraph("No fraud alerts found.", styles['Normal']))
+        elements.append(Spacer(1, 20))
+
+        # Audit Logs Table
+        # Fetch audit logs manually here to avoid circular imports or complex logic
+        audit_qs = AuditLog.objects.filter(admin_id=user.id) if role == 'ADMIN' else AuditLog.objects.all()
+        audit_logs = audit_qs.order_by('-created_at')[:50].values_list('created_at', 'action', 'user_type', 'ip_address')
+        
+        audit_data = [['Time', 'Action', 'User', 'IP']] + [
+            [log[0].strftime("%Y-%m-%d %H:%M"), log[1], log[2], log[3]] for log in audit_logs
+        ]
+        
+        elements.append(Paragraph("Recent Audit Logs (Last 50)", styles['Heading2']))
+        if len(audit_data) > 1:
+            t_audit = Table(audit_data)
+            t_audit.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.navy),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ]))
+            elements.append(t_audit)
+        else:
+             elements.append(Paragraph("No audit logs found.", styles['Normal']))
 
         doc.build(elements)
         return response
@@ -583,7 +605,7 @@ def audit_logs(request):
             # Superuser
             logs = AuditLog.objects.all()
             
-        logs = logs.order_by('-timestamp')[:100]
+        logs = logs.order_by('-created_at')[:100]
         
         data = []
         for log in logs:
@@ -595,7 +617,7 @@ def audit_logs(request):
                 'resource_type': log.resource_type,
                 'details': log.details,
                 'ip_address': log.ip_address,
-                'timestamp': log.timestamp.isoformat()
+                'timestamp': log.created_at.isoformat()
             })
         return Response(data)
     except Exception as e:
@@ -609,43 +631,71 @@ def voter_stats_chart(request):
     try:
         user = request.user
         role = getattr(user, 'role', '')
+        period = request.GET.get('period', '24h')
         
         filters = {}
         if role == 'ADMIN':
             filters['admin_id'] = user.id
             
-        # Default: Last 24 hours
         now = timezone.now()
-        start_time = now - timezone.timedelta(hours=24)
         
+        if period == '7d':
+             start_time = now - timezone.timedelta(days=7)
+             trunc_func = "DATE_TRUNC('day', verified_at)"
+             date_format = '%Y-%m-%d'
+             iterations = 7
+             iter_delta = timezone.timedelta(days=1)
+             iter_start_adjust = timezone.timedelta(days=6) # start from 6 days ago
+        elif period == '30d':
+             start_time = now - timezone.timedelta(days=30)
+             trunc_func = "DATE_TRUNC('day', verified_at)"
+             date_format = '%Y-%m-%d'
+             iterations = 30
+             iter_delta = timezone.timedelta(days=1)
+             iter_start_adjust = timezone.timedelta(days=29)
+        else: # 24h
+             start_time = now - timezone.timedelta(hours=24)
+             trunc_func = "DATE_TRUNC('hour', verified_at)"
+             date_format = '%H:00'
+             iterations = 24
+             iter_delta = timezone.timedelta(hours=1)
+             iter_start_adjust = timezone.timedelta(hours=23)
+        
+        # Query
         stats = (
             Voter.objects.filter(verified_at__gte=start_time, **filters)
-            .extra({'hour': "DATE_TRUNC('hour', verified_at)"})
-            .values('hour')
+            .extra({'period_group': trunc_func})
+            .values('period_group')
             .annotate(count=Count('id'))
-            .order_by('hour')
+            .order_by('period_group')
         )
         
         data_map = {}
         for stat in stats:
-             if stat['hour']:
-                 data_map[stat['hour'].strftime('%H:00')] = stat['count']
+             if stat['period_group']:
+                 key = stat['period_group'].strftime(date_format)
+                 data_map[key] = stat['count']
 
-        # Fill last 24h
+        # Fill gaps and build simple arrays
         labels = []
         data = []
-        for i in range(24):
-            # Going back 24h is tricky for labels order, let's just do simple query return for now
-            # Actually, let's just return what we have to satisfy the endpoint
-            pass
-
-        # Simplified return for direct use
-        labels = [k for k in data_map.keys()]
-        data_values = [v for v in data_map.values()]
+        
+        # We want to iterate from (now - iter_start_adjust) to now
+        current_step = now - iter_start_adjust
+        # Align step to hour or day start? 
+        # Simplified: Just rely on loop count and formatting.
+        # But this is tricky with timezones. Let's do a simple approach.
+        
+        for i in range(iterations + 1):
+             # This loop is rough, better to iterate by delta
+             ts = now - (iter_delta * (iterations - i))
+             key = ts.strftime(date_format)
+             labels.append(key)
+             data.append(data_map.get(key, 0))
             
         return Response({
             'labels': labels,
-            'data': data_values
+            'data': data
         })
     except Exception as e:
         logger.error(f"Chart stats error: {e}")

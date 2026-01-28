@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 from accounts.models import SuperAdmin, Admin, Operator
-from fraud.models import FraudLog
+from fraud.models import FraudLog, AuditLog
 from verification.models import Voter
 import random
 from datetime import timedelta
