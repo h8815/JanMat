@@ -58,8 +58,16 @@ const OperatorList = () => {
                         placeholder="Search operators..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue focus:border-transparent outline-none text-sm"
+                        className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue focus:border-transparent outline-none text-sm"
                     />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
                 <div className="flex gap-2">
                     <button
@@ -84,15 +92,16 @@ const OperatorList = () => {
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Operator Name</th>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Booth ID</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Last Login</th>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
                         {loading ? (
-                            <tr><td colSpan="4" className="p-8 text-center">Loading operators...</td></tr>
+                            <tr><td colSpan="5" className="p-8 text-center">Loading operators...</td></tr>
                         ) : filteredOperators.length === 0 ? (
-                            <tr><td colSpan="4" className="p-8 text-center text-slate-500">No operators found.</td></tr>
+                            <tr><td colSpan="5" className="p-8 text-center text-slate-500">No operators found.</td></tr>
                         ) : (
                             filteredOperators.map((op) => (
                                 <tr key={op.id} className="hover:bg-slate-50">
@@ -110,6 +119,9 @@ const OperatorList = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 font-mono font-bold">
                                         {op.booth_id}
                                     </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                        {op.last_login ? new Date(op.last_login).toLocaleString() : 'Never'}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${op.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                             }`}>
@@ -117,14 +129,14 @@ const OperatorList = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 flex gap-2">
-                                        <button 
+                                        <button
                                             onClick={() => handleEdit(op)}
                                             className="p-1 text-slate-400 hover:text-janmat-blue transition-colors"
                                             title="Edit"
                                         >
                                             <Edit2 className="w-4 h-4" />
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => handleDelete(op.id)}
                                             className="p-1 text-slate-400 hover:text-red-600 transition-colors"
                                             title="Delete"
@@ -177,7 +189,7 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                     <h3 className="font-bold text-lg text-slate-800">Add New Operator</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -266,7 +278,7 @@ const EditOperatorModal = ({ operator, onClose, onSuccess }) => {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
                 <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                     <h3 className="font-bold text-lg text-slate-800">Edit Operator</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5"/></button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -288,13 +300,13 @@ const EditOperatorModal = ({ operator, onClose, onSuccess }) => {
                         <label className="block text-sm font-medium text-slate-700 mb-1">Booth ID</label>
                         <input name="booth_id" value={formData.booth_id} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none" required />
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
-                        <input 
-                            type="checkbox" 
-                            id="is_active" 
-                            name="is_active" 
-                            checked={formData.is_active} 
+                        <input
+                            type="checkbox"
+                            id="is_active"
+                            name="is_active"
+                            checked={formData.is_active}
                             onChange={handleChange}
                             className="w-4 h-4 text-janmat-blue border-gray-300 rounded focus:ring-janmat-blue"
                         />

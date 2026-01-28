@@ -59,6 +59,18 @@ const Settings = ({ user }) => {
                             {user?.email}
                         </div>
                     </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-500">Admin ID</label>
+                        <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-slate-500 font-mono text-xs">
+                            {user?.id || 'N/A'}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-500">Role</label>
+                        <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-janmat-blue font-bold tracking-wider">
+                            {user?.role || 'ADMIN'}
+                        </div>
+                    </div>
                 </div>
             </div>
 
