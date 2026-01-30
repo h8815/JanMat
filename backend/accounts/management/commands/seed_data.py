@@ -59,7 +59,7 @@ class Command(BaseCommand):
                 }
             )
             return v
-
+            # Ensure voter exists for each fraud log
         for i in range(50):
             op = random.choice(operators)
             f_type = random.choice(fraud_types)
