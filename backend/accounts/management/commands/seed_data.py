@@ -21,6 +21,12 @@ class Command(BaseCommand):
         operators = []
         for i in range(1, 21):
             booth_id = f"Booth {i:03d}"
+            # Cleanup duplicates first to avoid MultipleObjectsReturned
+            existing_ops = Operator.objects.filter(booth_id=booth_id)
+            if existing_ops.count() > 1:
+                self.stdout.write(f'Cleaning up duplicates for {booth_id}...')
+                existing_ops.delete() # Hard reset for duplicates
+
             op, created = Operator.objects.get_or_create(
                 booth_id=booth_id,
                 defaults={
@@ -34,24 +40,50 @@ class Command(BaseCommand):
             operators.append(op)
         self.stdout.write(f'Ensured {len(operators)} Operators')
 
-        # 3. Create 50 Fraud Logs
-        # FraudLog.objects.filter(admin=admin).delete() # Optional: Clear old logs
+        # 3. Create Smart Fraud Logs & Voters (Linked)
         fraud_types = ['duplicate_biometric', 'multiple_otp_attempts', 'already_voted', 'invalid_session', 'suspicious_activity']
         
+        # Helper to create a linked voter
+        def ensure_fraud_voter(aadhaar, name, voted=False):
+            v, _ = Voter.objects.get_or_create(
+                aadhaar_number=aadhaar,
+                admin_id=admin.id,
+                defaults={
+                    'full_name': name,
+                    'date_of_birth': "1990-01-01",
+                    'gender': random.choice(['Male', 'Female']),
+                    'has_voted': voted,
+                    'full_address': "123 Demo St, New Delhi",
+                    # Photo will be created if missing, using placeholder URL for now if needed or left blank
+                    'photo_url': f"https://api.dicebear.com/7.x/avataaars/svg?seed={aadhaar}"
+                }
+            )
+            return v
+
         for i in range(50):
             op = random.choice(operators)
             f_type = random.choice(fraud_types)
             is_reviewed = random.choice([True, False])
             
+            # Generate a consistent Aadhaar for this log entry
+            aadhaar = f"{random.randint(100000000000, 999999999999)}"
+            
+            # For 'already_voted', ensure the voter exists and has marked voted
+            if f_type == 'already_voted':
+                 ensure_fraud_voter(aadhaar, f"Fraudster {i}", voted=True)
+            else:
+                 # Randomly create backing voter for 50% of other frauds to show profile
+                 if random.choice([True, False]):
+                     ensure_fraud_voter(aadhaar, f"Suspect {i}")
+
             log = FraudLog.objects.create(
                 fraud_type=f_type,
-                aadhaar_number=f"{random.randint(100000000000, 999999999999)}",
+                aadhaar_number=aadhaar,
                 booth_number=op.booth_id,
                 details={'reason': f'System detected {f_type} during scan.'},
                 operator=op,
                 admin=admin,
                 reviewed=is_reviewed,
-                # flagged_at auto-sets to now. We can tweak it:
             )
             # Hack to backdate
             log.flagged_at = timezone.now() - timedelta(hours=random.randint(0, 48), minutes=random.randint(0,60))
