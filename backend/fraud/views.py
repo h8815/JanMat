@@ -76,3 +76,68 @@ def fraud_stats(request):
         return Response({
             'error': 'Failed to load fraud statistics'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def fraud_log_detail(request, log_id):
+    """Get full details of a fraud log (unmasks data and marks as reviewed)"""
+    try:
+        admin_user = request.user
+        
+        # Robust Admin ID extraction
+        if hasattr(admin_user, 'is_superuser') and admin_user.is_superuser:
+             # If superuser, they can see any log, OR they act as an admin?
+             # For tenant isolation, we usually need a specific admin_id. 
+             # If superuser, let's bypass the admin_id check or fetch the log directly.
+             log = FraudLog.objects.get(id=log_id)
+             admin_id = log.admin_id # Use the log's admin for voter lookup
+        else:
+             # Validates that the user is the owner of the log
+             admin_id = admin_user.id
+             try:
+                 log = FraudLog.objects.get(id=log_id, admin_id=admin_id)
+             except FraudLog.DoesNotExist:
+                 return Response({'error': 'Fraud log not found'}, status=404)
+            
+        # Mark as reviewed automatically
+        if not log.reviewed:
+            log.reviewed = True
+            log.save()
+            
+        # Try to fetch real voter details if available
+        voter_details = {}
+        if log.aadhaar_number:
+            from verification.models import Voter
+            try:
+                voter = Voter.objects.filter(aadhaar_number=log.aadhaar_number, admin_id=admin_id).first()
+                if voter:
+                    voter_details = {
+                        'full_name': voter.full_name,
+                        'full_name_hindi': voter.full_name_hindi,
+                        'dob': voter.date_of_birth.strftime('%d/%m/%Y'),
+                        'gender': voter.gender,
+                        'address': voter.full_address,
+                        'photo': voter.photo_base64 or voter.photo_url
+                    }
+            except Exception as v_err:
+                logger.warning(f"Could not fetch voter details: {v_err}")
+
+        data = {
+            'id': str(log.id),
+            'fraud_type': log.fraud_type,
+            'aadhaar_number': log.aadhaar_number, # Unmasked
+            'aadhaar_masked': f"XXXX-XXXX-{log.aadhaar_number[-4:]}" if log.aadhaar_number else '',
+            'booth_number': log.booth_number,
+            'flagged_at': log.flagged_at.isoformat(),
+            'reviewed': log.reviewed,
+            'details': log.details,
+            'admin_notes': log.admin_notes,
+            'voter': voter_details # Added real voter info
+        }
+        
+        return Response(data)
+    except Exception as e:
+        logger.error(f"Fraud detail error: {str(e)}")
+        return Response({
+            'error': 'Failed to load details'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

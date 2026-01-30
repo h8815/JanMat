@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import {
@@ -15,16 +16,32 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 import OperatorList from '../../components/admin/OperatorList';
 import FraudLogTable from '../../components/admin/FraudLogTable';
 import Settings from '../../components/admin/Settings';
-
 import AuditLogTable from '../../components/admin/AuditLogTable';
-// Removed placeholder AuditLogTable
 
 const AdminDashboard = () => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Get active tab from URL query params or default to 'dashboard'
+    const searchParams = new URLSearchParams(location.search);
+    const initialTab = searchParams.get('tab') || 'dashboard';
+
+    const [activeTab, setActiveTabState] = useState(initialTab);
     const [chartPeriod, setChartPeriod] = useState('24h');
     const [chartStats, setChartStats] = useState({ labels: [], data: [] });
 
-    const [activeTab, setActiveTab] = useState('dashboard');
+    // Sync state with URL changes (e.g. browser back button)
+    useEffect(() => {
+        const currentTab = new URLSearchParams(location.search).get('tab') || 'dashboard';
+        setActiveTabState(currentTab);
+    }, [location.search]);
+
+    // Wrapper to update URL when changing tab
+    const setActiveTab = (tab) => {
+        setActiveTabState(tab);
+        navigate(`?tab=${tab}`);
+    };
     const [currentTime, setCurrentTime] = useState(new Date().toLocaleString());
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState({
@@ -227,8 +244,8 @@ const AdminDashboard = () => {
                                                 boothStatuses.map((op, idx) => (
                                                     <div key={idx} className="flex justify-between items-center pb-3 border-b border-slate-50 last:border-0">
                                                         <div>
-                                                            <p className="font-bold text-slate-800 text-sm">Booth {op.booth_id || '??'}</p>
-                                                            <p className="text-xs text-slate-500">Operator: {op.name}</p>
+                                                            <p className="font-bold text-slate-800 text-sm">{op.booth_id || '??'}</p>
+                                                            <p className="text-xs text-slate-500">Operator: {op.full_name || op.name || 'Unknown'}</p>
                                                         </div>
                                                         <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${op.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                                             {op.is_active ? 'Active' : 'Offline'}

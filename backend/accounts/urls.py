@@ -1,6 +1,7 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 from . import views
+from fraud import views as fraud_views
 
 urlpatterns = [
     # Authentication endpoints
@@ -17,6 +18,10 @@ urlpatterns = [
     path('admin/operators/<uuid:pk>/', views.manage_operator, name='manage_operator'),
     path('admin/stats/', views.admin_stats, name='admin_stats'),
     path('admin/fraud-logs/', views.fraud_logs, name='fraud_logs'),
+    
+    # NEW: Detail view mapped here to match frontend expectation
+    path('admin/fraud-logs/<uuid:log_id>/', fraud_views.fraud_log_detail, name='fraud_log_detail'),
+    
     path('admin/audit-logs/', views.audit_logs, name='audit_logs'),
     path('admin/voter-stats-chart/', views.voter_stats_chart, name='voter_stats_chart'),
     path('admin/export-report/', views.export_admin_report, name='export_admin_report'),
