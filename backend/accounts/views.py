@@ -6,6 +6,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from django.db import transaction
 from django.db.models import Count, Q
+from django.db.models.functions import TruncHour, TruncDay
+from django.core.paginator import Paginator
 from django.contrib.auth.hashers import check_password, make_password
 import logging
 
@@ -188,7 +190,7 @@ def change_password(request):
     
     serializer = ChangePasswordSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response({'error': 'Invalid data', 'details': serializer.errors}, status=400)
+        return Response({'error': 'Password should be at least 12 characters long', 'details': serializer.errors}, status=400)
     
     try:
         new_password = serializer.validated_data['new_password']
@@ -218,7 +220,7 @@ def create_operator(request):
     """Admin-only endpoint to create operators"""
     serializer = CreateOperatorSerializer(data=request.data)
     if not serializer.is_valid():
-        return Response({'error': 'Invalid data', 'details': serializer.errors}, status=400)
+        return Response({'error': 'Validation failed', 'details': serializer.errors}, status=400)
     
     try:
         creator = request.user
@@ -441,8 +443,9 @@ def admin_change_password(request):
         return Response({'error': 'Unauthorized'}, status=403)
         
     serializer = AdminChangePasswordSerializer(data=request.data)
+    
     if not serializer.is_valid():
-        return Response({'error': 'Invalid data', 'details': serializer.errors}, status=400)
+        return Response({'error': 'Validation failed', 'details': serializer.errors}, status=400)
         
     old_password = serializer.validated_data['old_password']
     new_password = serializer.validated_data['new_password']
@@ -466,6 +469,53 @@ def admin_change_password(request):
     except: pass
     
     return Response({'success': True, 'message': 'Password updated successfully'})
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def update_admin_profile(request):
+    """Update admin profile details"""
+    user = request.user
+    role = getattr(user, 'role', '')
+    
+    if role not in ['ADMIN', 'SUPERUSER']:
+        return Response({'error': 'Unauthorized'}, status=403)
+
+    # Use existing serializer
+    if role == 'SUPERUSER':
+        serializer = SuperAdminSerializer(user, data=request.data, partial=True)
+    else:
+        serializer = AdminSerializer(user, data=request.data, partial=True)
+
+    if serializer.is_valid():
+        # Check email uniqueness if changing
+        new_email = serializer.validated_data.get('email')
+        if new_email and new_email != user.email:
+            if role == 'ADMIN' and Admin.objects.filter(email=new_email).exclude(id=user.id).exists():
+                 return Response({'error': 'Email is already taken by another admin'}, status=400)
+            if role == 'SUPERUSER' and SuperAdmin.objects.filter(email=new_email).exclude(id=user.id).exists():
+                 return Response({'error': 'Email is already taken by another superadmin'}, status=400)
+
+        serializer.save()
+        
+        # Log it
+        try:
+            AuditService.log_action(
+                action='profile_updated',
+                user_type='admin',
+                user_id=user.id,
+                admin_id=user.id if role == 'ADMIN' else None,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                details={'updated_fields': list(request.data.keys())}
+            )
+        except: pass
+        
+        return Response({
+            'success': True, 
+            'message': 'Profile updated successfully',
+            'user': serializer.data
+        })
+    
+    return Response({'error': 'Validation failed', 'details': serializer.errors}, status=400)
 
 from django.http import HttpResponse
 from reportlab.lib import colors
@@ -537,8 +587,8 @@ def export_admin_report(request):
             r, g, b = tuple(int(hex_code[i:i+2], 16)/255.0 for i in (0, 2, 4))
             return colors.Color(r, g, b, alpha=alpha)
 
-        ROW_BG = hex_to_rgb_alpha('#F8FAFC', 0.4)
-        ROW_WHITE = hex_to_rgb_alpha('#FFFFFF', 0.2)
+        ROW_BG = hex_to_rgb_alpha('#F8FAFC', 0.6)
+        ROW_WHITE = hex_to_rgb_alpha('#FFFFFF', 0.4)
         
         styles = getSampleStyleSheet()
         title_style = styles['Title']
@@ -717,21 +767,42 @@ def export_admin_report(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdmin])
 def audit_logs(request):
-    """Get audit logs"""
+    """Get audit logs with search, filtering, and pagination"""
     try:
         user = request.user
         role = getattr(user, 'role', '')
         
+        # Base Query
         if role == 'ADMIN':
-            logs = AuditLog.objects.filter(admin_id=user.id)
+            queryset = AuditLog.objects.filter(admin_id=user.id)
         else:
             # Superuser
-            logs = AuditLog.objects.all()
+            queryset = AuditLog.objects.all()
             
-        logs = logs.order_by('-created_at')[:100]
+        queryset = queryset.order_by('-created_at')
+
+        # 1. Search (Action, Details, IP, Actor)
+        search_query = request.GET.get('search', '').strip()
+        if search_query:
+            queryset = queryset.filter(
+                Q(action__icontains=search_query) | 
+                Q(details__icontains=search_query) |
+                Q(ip_address__icontains=search_query) |
+                Q(user_type__icontains=search_query)
+            )
+
+        # 2. Pagination
+        page_number = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('limit', 20))
+        paginator = Paginator(queryset, page_size)
         
+        try:
+            page_obj = paginator.page(page_number)
+        except Exception:
+            page_obj = paginator.page(1)
+
         data = []
-        for log in logs:
+        for log in page_obj:
             data.append({
                 'id': str(log.id),
                 'action': log.action,
@@ -742,7 +813,15 @@ def audit_logs(request):
                 'ip_address': log.ip_address,
                 'timestamp': log.created_at.isoformat()
             })
-        return Response(data)
+            
+        return Response({
+            'logs': data,
+            'total': paginator.count,
+            'page': page_obj.number,
+            'pages': paginator.num_pages,
+            'has_next': page_obj.has_next(),
+            'has_previous': page_obj.has_previous()
+        })
     except Exception as e:
         logger.error(f"Audit log error: {e}")
         return Response({'error': 'Failed to load audit logs'}, status=500)
@@ -764,30 +843,27 @@ def voter_stats_chart(request):
         
         if period == '7d':
              start_time = now - timezone.timedelta(days=7)
-             trunc_func = "DATE_TRUNC('day', verified_at)"
+             trunc_func = TruncDay('verified_at')
              date_format = '%Y-%m-%d'
              iterations = 7
              iter_delta = timezone.timedelta(days=1)
-             iter_start_adjust = timezone.timedelta(days=6)
         elif period == '30d':
              start_time = now - timezone.timedelta(days=30)
-             trunc_func = "DATE_TRUNC('day', verified_at)"
+             trunc_func = TruncDay('verified_at')
              date_format = '%Y-%m-%d'
              iterations = 30
              iter_delta = timezone.timedelta(days=1)
-             iter_start_adjust = timezone.timedelta(days=29)
         else: # 24h
              start_time = now - timezone.timedelta(hours=24)
-             trunc_func = "DATE_TRUNC('hour', verified_at)"
+             trunc_func = TruncHour('verified_at')
              date_format = '%H:00'
              iterations = 24
              iter_delta = timezone.timedelta(hours=1)
-             iter_start_adjust = timezone.timedelta(hours=23)
         
         # Query
         stats = (
             Voter.objects.filter(verified_at__gte=start_time, **filters)
-            .extra({'period_group': trunc_func})
+            .annotate(period_group=trunc_func)
             .values('period_group')
             .annotate(count=Count('id'))
             .order_by('period_group')
@@ -796,14 +872,13 @@ def voter_stats_chart(request):
         data_map = {}
         for stat in stats:
              if stat['period_group']:
+                 # Localize if needed, but for now simplistic
                  key = stat['period_group'].strftime(date_format)
                  data_map[key] = stat['count']
 
-        # Fill gaps and build simple arrays
+        # Fill gaps
         labels = []
         data = []
-        
-        current_step = now - iter_start_adjust
         
         for i in range(iterations + 1):
              ts = now - (iter_delta * (iterations - i))

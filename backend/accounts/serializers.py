@@ -18,7 +18,11 @@ class OperatorLoginSerializer(serializers.Serializer):
         return value.lower().strip()
 
 class ChangePasswordSerializer(serializers.Serializer):
-    new_password = serializers.CharField(write_only=True, min_length=12)
+    new_password = serializers.CharField(
+        write_only=True, 
+        min_length=12,
+        error_messages={'min_length': 'Password must be at least 12 characters.'}
+    )
 
     def validate_new_password(self, value):
         try:
@@ -29,7 +33,11 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 class AdminChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(write_only=True)
-    new_password = serializers.CharField(write_only=True, min_length=12)
+    new_password = serializers.CharField(
+        write_only=True, 
+        min_length=12,
+        error_messages={'min_length': 'Password must be at least 12 characters.'}
+    )
 
     def validate_new_password(self, value):
         try:
@@ -40,7 +48,11 @@ class AdminChangePasswordSerializer(serializers.Serializer):
 
 class CreateOperatorSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    password = serializers.CharField(write_only=True, min_length=12)
+    password = serializers.CharField(
+        write_only=True, 
+        min_length=12,
+        error_messages={'min_length': 'Password must be at least 12 characters.'}
+    )
     booth_id = serializers.CharField(max_length=50)
     full_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
 

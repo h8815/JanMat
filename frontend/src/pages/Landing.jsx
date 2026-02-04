@@ -51,10 +51,10 @@ const Landing = () => {
 
                             <footer className="mt-8 flex items-center justify-between text-sm text-slate-500">
                                 <div className="flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-slate-600" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    {/* <svg className="w-4 h-4 text-slate-600" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11c0 3.866-3.582 7-8 7v-7h16v7c-4.418 0-8-3.134-8-7z" />
-                                    </svg>
-                                    <span>Secure connection (HTTPS)</span>
+                                    </svg> */}
+                                    {/* <span>Secure connection (HTTPS)</span> */}
                                 </div>
                                 <div>© {currentYear} Election Commission</div>
                             </footer>

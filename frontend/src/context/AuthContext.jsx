@@ -29,13 +29,11 @@ export const AuthProvider = ({ children }) => {
         if (token) {
             try {
                 const decoded = jwtDecode(token);
-                if (decoded.exp * 1000 < Date.now()) {
-                    logout();
-                } else {
-                    // Fetch full profile to get name and other details not in token
-                    await fetchUser();
-                }
+                // Allow axios interceptor to handle 401/refresh if token is expired
+                await fetchUser();
             } catch (e) {
+                // If token is malformed, then logout
+                console.error("Invalid token found", e);
                 logout();
             }
         }
@@ -55,7 +53,7 @@ export const AuthProvider = ({ children }) => {
             const role = decoded.role || 'UNKNOWN';
 
             if (role === 'SUPERUSER') {
-                throw new Error('SuperAdmins must use the Backend Admin Portal.');
+                throw new Error('Invalid role found in token');
             }
 
             localStorage.setItem('access_token', access);

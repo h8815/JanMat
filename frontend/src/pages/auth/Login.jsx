@@ -39,7 +39,9 @@ const Login = () => {
                 navigate('/operator-dashboard');
             }
         } catch (err) {
-            setError(err.message || 'Invalid credentials. Please contact support.');
+            // Prioritize backend error message (e.g., "Invalid credentials")
+            const backendMsg = err.response?.data?.error;
+            setError(backendMsg || err.message || 'Invalid credentials. Please contact support.');
         } finally {
             setLoading(false);
         }

@@ -178,7 +178,18 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
             await axios.post('/auth/admin/create-operator/', formData);
             onSuccess();
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to create operator');
+            let errorMsg = 'Failed to create operator';
+            if (err.response?.data) {
+                if (err.response.data.details) {
+                    const details = err.response.data.details;
+                    errorMsg = Object.entries(details)
+                        .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(' ') : val}`)
+                        .join('\n');
+                } else if (err.response.data.error) {
+                    errorMsg = err.response.data.error;
+                }
+            }
+            setError(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -267,7 +278,18 @@ const EditOperatorModal = ({ operator, onClose, onSuccess }) => {
             await axios.put(`/auth/admin/operators/${operator.id}/`, formData);
             onSuccess();
         } catch (err) {
-            setError(err.response?.data?.error || 'Failed to update operator');
+            let errorMsg = 'Failed to update operator';
+            if (err.response?.data) {
+                if (err.response.data.details) {
+                    const details = err.response.data.details;
+                    errorMsg = Object.entries(details)
+                        .map(([key, val]) => `${key}: ${Array.isArray(val) ? val.join(' ') : val}`)
+                        .join('\n');
+                } else if (err.response.data.error) {
+                    errorMsg = err.response.data.error;
+                }
+            }
+            setError(errorMsg);
         } finally {
             setLoading(false);
         }
