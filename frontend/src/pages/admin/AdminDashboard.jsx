@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import {
-    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin
+    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu
 } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import {
@@ -17,6 +17,7 @@ import OperatorList from '../../components/admin/OperatorList';
 import FraudLogTable from '../../components/admin/FraudLogTable';
 import Settings from '../../components/admin/Settings';
 import AuditLogTable from '../../components/admin/AuditLogTable';
+import Sidebar from '../../components/admin/Sidebar';
 
 const AdminDashboard = () => {
     const { user, logout } = useAuth();
@@ -30,6 +31,8 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTabState] = useState(initialTab);
     const [chartPeriod, setChartPeriod] = useState('24h');
     const [chartStats, setChartStats] = useState({ labels: [], data: [] });
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     // Sync state with URL changes (e.g. browser back button)
     useEffect(() => {
@@ -60,19 +63,34 @@ const AdminDashboard = () => {
         return () => clearInterval(timer);
     }, []);
 
+    // Auto-refresh data every 30 seconds for real-time updates
+    useEffect(() => {
+        const interval = setInterval(() => {
+            if (activeTab === 'dashboard' || activeTab === 'fraud' || activeTab === 'audit') {
+                setRefreshTrigger(prev => !prev);
+            }
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [activeTab]);
+
+    const [refreshTrigger, setRefreshTrigger] = useState(false);
+
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [statsRes, fraudRes, opsRes] = await Promise.all([
-                    axios.get('/auth/admin/stats/'),
-                    axios.get('/auth/admin/fraud-logs/'),
-                    axios.get('/auth/admin/operators/')
-                ]);
+                if (activeTab === 'dashboard') {
+                    const [statsRes, fraudRes, opsRes] = await Promise.all([
+                        axios.get('/auth/admin/stats/'),
+                        axios.get('/auth/admin/fraud-logs/'), // recent logs
+                        axios.get('/auth/admin/operators/')
+                    ]);
 
-                setStats(statsRes.data);
-                setRecentFraudLogs(fraudRes.data.slice(0, 5));
-                setBoothStatuses(opsRes.data.slice(0, 4));
-
+                    setStats(statsRes.data);
+                    // Handle paginated response (obj.logs) or flat list (array)
+                    const fraudList = Array.isArray(fraudRes.data) ? fraudRes.data : (fraudRes.data.logs || []);
+                    setRecentFraudLogs(fraudList.slice(0, 5));
+                    setBoothStatuses(opsRes.data.slice(0, 4));
+                }
             } catch (error) {
                 console.error("Failed to fetch dashboard data", error);
             } finally {
@@ -80,10 +98,8 @@ const AdminDashboard = () => {
             }
         };
 
-        if (activeTab === 'dashboard') {
-            fetchData();
-        }
-    }, [activeTab]);
+        fetchData();
+    }, [activeTab, refreshTrigger]);
 
     // Separate effect for Chart to avoid reloading everything
     useEffect(() => {
@@ -97,7 +113,7 @@ const AdminDashboard = () => {
             }
         };
         fetchChart();
-    }, [activeTab, chartPeriod]);
+    }, [activeTab, chartPeriod, refreshTrigger]);
 
     const handleExport = async () => {
         try {
@@ -117,7 +133,6 @@ const AdminDashboard = () => {
         }
     };
 
-    // ... (Charts data)
     const chartData = {
         labels: chartStats.labels && chartStats.labels.length > 0 ? chartStats.labels : ['No Data'],
         datasets: [
@@ -187,7 +202,6 @@ const AdminDashboard = () => {
         },
     };
 
-
     const renderContent = () => {
         switch (activeTab) {
             case 'operators':
@@ -205,7 +219,7 @@ const AdminDashboard = () => {
                         {loading ? <p>Loading stats...</p> : (
                             <>
                                 {/* Stats Row */}
-                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                     <StatCard label="Total Verified Today" value={stats.verifications_today} icon={<Activity className="w-5 h-5" />} trend="All Time" color="blue" />
                                     <StatCard label="Verified Voters" value={stats.verified_voters} icon={<Home className="w-5 h-5" />} subtext="Total Registered" color="slate" />
                                     <StatCard label="Fraud Alerts" value={stats.total_fraud_alerts} icon={<AlertOctagon className="w-5 h-5" />} subtext="Requires Review" color="red" />
@@ -266,7 +280,6 @@ const AdminDashboard = () => {
                                     <div className="flex justify-between items-center mb-4">
                                         <h3 className="font-bold text-slate-800 text-lg">Recent Fraud Logs</h3>
                                         <div className="flex gap-2">
-                                            {/* <button className="px-3 py-1 border rounded text-xs text-slate-600 hover:bg-slate-50">Export CSV</button> */}
                                             <button onClick={() => setActiveTab('fraud')} className="px-3 py-1 bg-janmat-blue text-white rounded text-xs font-bold hover:bg-janmat-hover">View all fraud logs</button>
                                         </div>
                                     </div>
@@ -318,77 +331,63 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div className="flex min-h-screen bg-slate-50 font-sans">
+        <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
             {/* Sidebar */}
-            <nav className="w-[260px] bg-white h-screen fixed border-r border-slate-200 flex flex-col z-50">
-                <div className="p-6 flex items-center gap-3 mb-6">
-                    <img src="/assets/images/ashoka.png" alt="Emblem" className="h-10 w-auto opacity-90" />
-                    <div>
-                        <h1 className="text-lg font-bold text-slate-900 leading-tight">JanMat</h1>
-                        <p className="text-xs text-slate-500">Admin Portal</p>
-                    </div>
-                </div>
+            {/* Sidebar */}
+            <Sidebar
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                user={user}
+                logout={logout}
+                isOpen={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
+                isCollapsed={sidebarCollapsed}
+                setIsCollapsed={setSidebarCollapsed}
+            />
 
-                <div className="flex-1 space-y-1">
-                    <NavItem icon={<Home className="w-5 h-5" />} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-                    <NavItem icon={<Users className="w-5 h-5" />} label="Operators" active={activeTab === 'operators'} onClick={() => setActiveTab('operators')} />
-                    <NavItem icon={<AlertOctagon className="w-5 h-5" />} label="Fraud Logs" active={activeTab === 'fraud'} onClick={() => setActiveTab('fraud')} />
-                    <NavItem icon={<FileText className="w-5 h-5" />} label="Audit Logs" active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} />
-                    <NavItem icon={<Activity className="w-5 h-5" />} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
-                </div>
-
-                <div className="p-6 border-t border-slate-100">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold">
-                            {user?.email?.charAt(0).toUpperCase() || 'A'}
-                        </div>
-                        <div className="text-sm overflow-hidden">
-                            <p className="font-bold text-slate-800 truncate">{user?.name || user?.email || 'Admin'}</p>
-                            <p className="text-xs text-slate-500">Election Commission</p>
-                        </div>
-                    </div>
-                    <button onClick={logout} className="w-full py-2 px-4 bg-red-50 text-red-600 text-sm font-medium rounded hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
-                        <LogOut className="w-4 h-4" /> Sign Out
-                    </button>
-                </div>
-            </nav>
-
-            {/* Main Content */}
-            <main className="ml-[260px] w-full p-8">
+            {/* Main Content Wrapper */}
+            <div className={`
+                flex-1 flex flex-col overflow-hidden relative transition-all duration-300
+                ${sidebarCollapsed ? 'md:ml-[111px]' : 'md:ml-[280px]'}
+            `}>
                 {/* Top Header */}
-                <header className="flex justify-between items-center mb-8">
-                    <div>
-                        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                            {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
-                            {activeTab === 'dashboard' && <span className="px-2 py-0.5 rounded text-[10px] bg-red-100 text-red-600 uppercase font-bold tracking-wider">Live</span>}
-                        </h2>
-                        <p className="text-sm text-slate-500 mt-1">Server time: <span className="font-mono">{currentTime}</span></p>
+                <header className="flex justify-between items-center p-4 md:p-8 border-b border-slate-200 bg-white shrink-0">
+                    <div className="flex items-center gap-4">
+                        {/* Mobile Menu Button */}
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg md:hidden"
+                        >
+                            <Menu className="w-6 h-6" />
+                        </button>
+
+                        <div>
+                            <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                                {activeTab === 'dashboard' && <span className="px-2 py-0.5 rounded text-[10px] bg-red-100 text-red-600 uppercase font-bold tracking-wider hidden sm:inline-block">Live</span>}
+                            </h2>
+                            <p className="text-xs md:text-sm text-slate-500 mt-1 hidden sm:block">Server time: <span className="font-mono">{currentTime}</span></p>
+                        </div>
                     </div>
 
                     <div className="flex gap-4">
-                        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
+                        <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 md:px-4 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
                             <Download className="w-4 h-4 text-slate-500" />
-                            Export Report
+                            <span className="hidden sm:inline">Export Report</span>
                         </button>
                     </div>
                 </header>
 
-                {/* Dashboard View */}
-                {renderContent()}
-            </main>
+                {/* Main Scrollable Area */}
+                <main className="flex-1 overflow-y-auto p-4 md:p-8">
+                    {renderContent()}
+                </main>
+            </div>
         </div>
     );
 };
 
-
 // Sub-components
-const NavItem = ({ icon, label, active, onClick }) => (
-    <button onClick={onClick} className={`w-full px-6 py-3 flex items-center gap-3 text-sm font-medium transition-all ${active ? 'bg-janmat-blue text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'}`}>
-        {icon}
-        {label}
-    </button>
-);
-
 const StatCard = ({ label, value, icon, trend, subtext, color }) => {
     const borderClass = color === 'blue' ? 'border-janmat-blue' : color === 'red' ? 'border-red-500' : 'border-slate-200';
     const iconBg = color === 'blue' ? 'bg-blue-50 text-janmat-blue' : color === 'red' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600';

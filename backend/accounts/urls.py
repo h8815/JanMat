@@ -13,11 +13,12 @@ urlpatterns = [
     
     # Admin-only endpoints
     path('admin/change-password/', views.admin_change_password, name='admin_change_password'),
+    path('admin/update-profile/', views.update_admin_profile, name='update_admin_profile'),
     path('admin/create-operator/', views.create_operator, name='create_operator'),
     path('admin/operators/', views.list_operators, name='list_operators'),
     path('admin/operators/<uuid:pk>/', views.manage_operator, name='manage_operator'),
     path('admin/stats/', views.admin_stats, name='admin_stats'),
-    path('admin/fraud-logs/', views.fraud_logs, name='fraud_logs'),
+    path('admin/fraud-logs/', fraud_views.fraud_logs, name='fraud_logs'),
     
     # NEW: Detail view mapped here to match frontend expectation
     path('admin/fraud-logs/<uuid:log_id>/', fraud_views.fraud_log_detail, name='fraud_log_detail'),
