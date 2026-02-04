@@ -239,3 +239,67 @@ def fraud_log_detail(request, log_id):
         return Response({
             'error': f'Failed to load details: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def unread_fraud_count(request):
+    """Get count of unreviewed fraud logs for notification badge"""
+    try:
+        is_superuser = False
+        admin_id = None
+        
+        if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
+            is_superuser = True
+            
+        if not is_superuser:
+            if request.auth and 'admin_id' in request.auth:
+                admin_id = request.auth['admin_id']
+            else:
+                admin_user = request.user
+                admin_id = getattr(admin_user, 'admin_id', admin_user.id)
+                if hasattr(admin_user, 'admin'):
+                     admin_id = admin_user.admin.id
+        
+        # Prepare filters
+        base_filter = {}
+        if not is_superuser:
+            base_filter['admin_id'] = admin_id
+            
+        count = FraudLog.objects.filter(reviewed=False, **base_filter).count()
+        
+        return Response({'unread_count': count})
+    except Exception as e:
+        logger.error(f"Unread count error: {str(e)}")
+        return Response({'error': 'Failed to fetch count'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def mark_all_reviewed(request):
+    """Mark all unreviewed fraud logs as reviewed for the current admin"""
+    try:
+        is_superuser = False
+        admin_id = None
+        
+        if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
+            is_superuser = True
+            
+        if not is_superuser:
+            if request.auth and 'admin_id' in request.auth:
+                admin_id = request.auth['admin_id']
+            else:
+                admin_user = request.user
+                admin_id = getattr(admin_user, 'admin_id', admin_user.id)
+                if hasattr(admin_user, 'admin'):
+                     admin_id = admin_user.admin.id
+        
+        # Prepare filters
+        base_filter = {}
+        if not is_superuser:
+            base_filter['admin_id'] = admin_id
+            
+        updated_count = FraudLog.objects.filter(reviewed=False, **base_filter).update(reviewed=True)
+        
+        return Response({'success': True, 'updated_count': updated_count})
+    except Exception as e:
+        logger.error(f"Mark all reviewed error: {str(e)}")
+        return Response({'error': 'Failed to update logs'}, status=500)

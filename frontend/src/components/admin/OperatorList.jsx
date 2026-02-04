@@ -50,7 +50,7 @@ const OperatorList = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                 <div className="relative w-96">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
@@ -58,12 +58,12 @@ const OperatorList = () => {
                         placeholder="Search operators..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue focus:border-transparent outline-none text-sm"
+                        className="w-full pl-10 pr-10 py-2 border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue focus:border-transparent outline-none text-sm dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                     />
                     {searchTerm && (
                         <button
                             onClick={() => setSearchTerm('')}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -72,7 +72,7 @@ const OperatorList = () => {
                 <div className="flex gap-2">
                     <button
                         onClick={fetchOperators}
-                        className="p-2 text-slate-600 hover:bg-slate-100 rounded border border-slate-300 transition-colors"
+                        className="p-2 text-slate-600 hover:bg-slate-100 rounded border border-slate-300 transition-colors dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-600"
                         title="Refresh List"
                     >
                         <RefreshCw className="w-4 h-4" />
@@ -86,44 +86,44 @@ const OperatorList = () => {
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
-                <table className="min-w-full divide-y divide-slate-200">
-                    <thead className="bg-slate-50">
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                    <thead className="bg-slate-50 dark:bg-slate-900">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Operator Name</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Booth ID</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Last Login</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Actions</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Operator Name</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Booth ID</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Last Login</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-slate-200">
+                    <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
                         {loading ? (
-                            <tr><td colSpan="5" className="p-8 text-center">Loading operators...</td></tr>
+                            <tr><td colSpan="5" className="p-8 text-center dark:text-slate-400">Loading operators...</td></tr>
                         ) : filteredOperators.length === 0 ? (
-                            <tr><td colSpan="5" className="p-8 text-center text-slate-500">No operators found.</td></tr>
+                            <tr><td colSpan="5" className="p-8 text-center text-slate-500 dark:text-slate-400">No operators found.</td></tr>
                         ) : (
                             filteredOperators.map((op) => (
-                                <tr key={op.id} className="hover:bg-slate-50">
+                                <tr key={op.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
-                                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-janmat-blue font-bold text-xs mr-3">
+                                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-janmat-blue font-bold text-xs mr-3 dark:bg-blue-900 dark:text-blue-200">
                                                 {(op.full_name || op.name || 'O').charAt(0)}
                                             </div>
                                             <div>
-                                                <div className="text-sm font-medium text-slate-900">{op.full_name || op.name}</div>
-                                                <div className="text-xs text-slate-500">{op.email}</div>
+                                                <div className="text-sm font-medium text-slate-900 dark:text-white">{op.full_name || op.name}</div>
+                                                <div className="text-xs text-slate-500 dark:text-slate-400">{op.email}</div>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 font-mono font-bold">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 font-mono font-bold dark:text-slate-300">
                                         {op.booth_id}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                                         {op.last_login ? new Date(op.last_login).toLocaleString() : 'Never'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${op.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${op.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                             }`}>
                                             {op.is_active ? 'Active' : 'Inactive'}
                                         </span>
@@ -131,14 +131,14 @@ const OperatorList = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 flex gap-2">
                                         <button
                                             onClick={() => handleEdit(op)}
-                                            className="p-1 text-slate-400 hover:text-janmat-blue transition-colors"
+                                            className="p-1 text-slate-400 hover:text-janmat-blue transition-colors dark:hover:text-janmat-light"
                                             title="Edit"
                                         >
                                             <Edit2 className="w-4 h-4" />
                                         </button>
                                         <button
                                             onClick={() => handleDelete(op.id)}
-                                            className="p-1 text-slate-400 hover:text-red-600 transition-colors"
+                                            className="p-1 text-slate-400 hover:text-red-600 transition-colors dark:hover:text-red-400"
                                             title="Delete"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -196,48 +196,48 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                    <h3 className="font-bold text-lg text-slate-800">Add New Operator</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden dark:bg-slate-800 dark:border dark:border-slate-700">
+                <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white">Add New Operator</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-5 h-5" /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {error && <div className="p-3 bg-red-50 text-red-700 text-sm rounded flex items-center gap-2">
+                    {error && <div className="p-3 bg-red-50 text-red-700 text-sm rounded flex items-center gap-2 dark:bg-red-900/20 dark:text-red-300">
                         <ShieldAlert className="w-4 h-4" /> {error}
                     </div>}
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                        <input name="full_name" value={formData.full_name} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none" required />
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Full Name</label>
+                        <input name="full_name" value={formData.full_name} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none" required />
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Email Address</label>
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Booth ID</label>
-                        <input name="booth_id" value={formData.booth_id} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none" required placeholder="e.g. B-001" />
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Booth ID</label>
+                        <input name="booth_id" value={formData.booth_id} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required placeholder="e.g. B-001" />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Password</label>
                         <div className="relative">
                             <input
                                 type={showPassword ? "text" : "password"}
                                 name="password"
                                 value={formData.password}
                                 onChange={handleChange}
-                                className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none pr-10"
+                                className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none pr-10 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                                 required
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                             >
                                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
@@ -245,7 +245,7 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium">Cancel</button>
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium dark:text-slate-300 dark:hover:bg-slate-700">Cancel</button>
                         <button type="submit" disabled={loading} className="px-4 py-2 bg-janmat-blue text-white rounded font-bold hover:bg-janmat-hover disabled:opacity-50">
                             {loading ? 'Creating...' : 'Create Operator'}
                         </button>
@@ -296,31 +296,31 @@ const EditOperatorModal = ({ operator, onClose, onSuccess }) => {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-                    <h3 className="font-bold text-lg text-slate-800">Edit Operator</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden dark:bg-slate-800 dark:border dark:border-slate-700">
+                <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+                    <h3 className="font-bold text-lg text-slate-800 dark:text-white">Edit Operator</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"><X className="w-5 h-5" /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {error && <div className="p-3 bg-red-50 text-red-700 text-sm rounded flex items-center gap-2">
+                    {error && <div className="p-3 bg-red-50 text-red-700 text-sm rounded flex items-center gap-2 dark:bg-red-900/20 dark:text-red-300">
                         <ShieldAlert className="w-4 h-4" /> {error}
                     </div>}
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Email (Read Only)</label>
-                        <input value={operator.email} disabled className="w-full p-2 border border-slate-200 bg-slate-50 rounded text-slate-500" />
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Email (Read Only)</label>
+                        <input value={operator.email} disabled className="w-full p-2 border border-slate-200 bg-slate-50 rounded text-slate-500 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300" />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
-                        <input name="full_name" value={formData.full_name} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none" required />
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Full Name</label>
+                        <input name="full_name" value={formData.full_name} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1">Booth ID</label>
-                        <input name="booth_id" value={formData.booth_id} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none" required />
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Booth ID</label>
+                        <input name="booth_id" value={formData.booth_id} onChange={handleChange} className="w-full p-2 border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -330,13 +330,13 @@ const EditOperatorModal = ({ operator, onClose, onSuccess }) => {
                             name="is_active"
                             checked={formData.is_active}
                             onChange={handleChange}
-                            className="w-4 h-4 text-janmat-blue border-gray-300 rounded focus:ring-janmat-blue"
+                            className="w-4 h-4 text-janmat-blue border-gray-300 rounded focus:ring-janmat-blue dark:bg-slate-700 dark:border-slate-600"
                         />
-                        <label htmlFor="is_active" className="text-sm font-medium text-slate-700">Active Account</label>
+                        <label htmlFor="is_active" className="text-sm font-medium text-slate-700 dark:text-slate-300">Active Account</label>
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3">
-                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium">Cancel</button>
+                        <button type="button" onClick={onClose} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded font-medium dark:text-slate-300 dark:hover:bg-slate-700">Cancel</button>
                         <button type="submit" disabled={loading} className="px-4 py-2 bg-janmat-blue text-white rounded font-bold hover:bg-janmat-hover disabled:opacity-50">
                             {loading ? 'Saving...' : 'Save Changes'}
                         </button>

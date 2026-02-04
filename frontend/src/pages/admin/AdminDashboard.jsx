@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import {
-    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu
+    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu, Bell
 } from 'lucide-react';
 import { Line } from 'react-chartjs-2';
 import {
@@ -18,11 +18,16 @@ import FraudLogTable from '../../components/admin/FraudLogTable';
 import Settings from '../../components/admin/Settings';
 import AuditLogTable from '../../components/admin/AuditLogTable';
 import Sidebar from '../../components/admin/Sidebar';
+import { Toaster } from 'react-hot-toast';
+import { useNotifications } from '../../context/NotificationContext';
 
 const AdminDashboard = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+
+    // Get notifications
+    const { unreadCount, markAllAsRead } = useNotifications() || { unreadCount: 0, markAllAsRead: () => { } }; // Fallback if context missing (shouldn't happen)
 
     // Get active tab from URL query params or default to 'dashboard'
     const searchParams = new URLSearchParams(location.search);
@@ -33,6 +38,7 @@ const AdminDashboard = () => {
     const [chartStats, setChartStats] = useState({ labels: [], data: [] });
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
 
     // Sync state with URL changes (e.g. browser back button)
     useEffect(() => {
@@ -228,15 +234,15 @@ const AdminDashboard = () => {
 
                                 {/* Graphs & Booths */}
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+                                    <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                                         <div className="flex justify-between items-center mb-6">
-                                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                            <h3 className="font-bold text-slate-800 flex items-center gap-2 dark:text-white">
                                                 <TrendingUp className="w-4 h-4" /> Verified Voters
                                             </h3>
                                             <div className="flex gap-2">
-                                                <button onClick={() => setChartPeriod('24h')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '24h' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-500 hover:bg-slate-50'}`}>24h</button>
-                                                <button onClick={() => setChartPeriod('7d')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '7d' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-500 hover:bg-slate-50'}`}>7d</button>
-                                                <button onClick={() => setChartPeriod('30d')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '30d' ? 'bg-slate-900 text-white' : 'bg-white border text-slate-500 hover:bg-slate-50'}`}>30d</button>
+                                                <button onClick={() => setChartPeriod('24h')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '24h' ? 'bg-slate-900 text-white dark:bg-slate-700' : 'bg-white border text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'}`}>24h</button>
+                                                <button onClick={() => setChartPeriod('7d')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '7d' ? 'bg-slate-900 text-white dark:bg-slate-700' : 'bg-white border text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'}`}>7d</button>
+                                                <button onClick={() => setChartPeriod('30d')} className={`px-2 py-1 text-xs rounded font-bold ${chartPeriod === '30d' ? 'bg-slate-900 text-white dark:bg-slate-700' : 'bg-white border text-slate-500 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700'}`}>30d</button>
                                             </div>
                                         </div>
                                         <div className="h-64">
@@ -245,30 +251,30 @@ const AdminDashboard = () => {
                                     </div>
 
                                     {/* Booth Status System */}
-                                    <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
+                                    <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                                         <div className="flex justify-between items-center mb-4">
-                                            <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                            <h3 className="font-bold text-slate-800 flex items-center gap-2 dark:text-white">
                                                 Booth Status
                                             </h3>
                                         </div>
                                         <div className="space-y-4">
                                             {boothStatuses.length === 0 ? (
-                                                <p className="text-sm text-slate-500">No active booths.</p>
+                                                <p className="text-sm text-slate-500 dark:text-slate-400">No active booths.</p>
                                             ) : (
                                                 boothStatuses.map((op, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center pb-3 border-b border-slate-50 last:border-0">
+                                                    <div key={idx} className="flex justify-between items-center pb-3 border-b border-slate-50 last:border-0 dark:border-slate-700">
                                                         <div>
-                                                            <p className="font-bold text-slate-800 text-sm">{op.booth_id || '??'}</p>
-                                                            <p className="text-xs text-slate-500">Operator: {op.full_name || op.name || 'Unknown'}</p>
+                                                            <p className="font-bold text-slate-800 text-sm dark:text-slate-200">{op.booth_id || '??'}</p>
+                                                            <p className="text-xs text-slate-500 dark:text-slate-400">Operator: {op.full_name || op.name || 'Unknown'}</p>
                                                         </div>
-                                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${op.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${op.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
                                                             {op.is_active ? 'Active' : 'Offline'}
                                                         </span>
                                                     </div>
                                                 ))
                                             )}
 
-                                            <button onClick={() => setActiveTab('operators')} className="w-full text-center text-xs font-bold text-janmat-blue hover:underline mt-2">
+                                            <button onClick={() => setActiveTab('operators')} className="w-full text-center text-xs font-bold text-janmat-blue hover:underline mt-2 dark:text-janmat-light">
                                                 View all booths
                                             </button>
                                         </div>
@@ -276,9 +282,9 @@ const AdminDashboard = () => {
                                 </div>
 
                                 {/* Recent Fraud Logs */}
-                                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden p-6">
+                                <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden p-6 dark:bg-slate-800 dark:border-slate-700">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-bold text-slate-800 text-lg">Recent Fraud Logs</h3>
+                                        <h3 className="font-bold text-slate-800 text-lg dark:text-white">Recent Fraud Logs</h3>
                                         <div className="flex gap-2">
                                             <button onClick={() => setActiveTab('fraud')} className="px-3 py-1 bg-janmat-blue text-white rounded text-xs font-bold hover:bg-janmat-hover">View all fraud logs</button>
                                         </div>
@@ -286,7 +292,7 @@ const AdminDashboard = () => {
 
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-sm text-left">
-                                            <thead className="text-xs text-slate-400 uppercase border-b">
+                                            <thead className="text-xs text-slate-400 uppercase border-b dark:border-slate-700">
                                                 <tr>
                                                     <th className="py-3 font-medium">Timestamp</th>
                                                     <th className="py-3 font-medium">Voter (Masked)</th>
@@ -296,23 +302,23 @@ const AdminDashboard = () => {
                                                     <th className="py-3 font-medium text-right">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-slate-100">
+                                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                                                 {recentFraudLogs.length === 0 ? (
-                                                    <tr><td colSpan="6" className="py-4 text-center text-slate-500">No recent fraud alerts.</td></tr>
+                                                    <tr><td colSpan="6" className="py-4 text-center text-slate-500 dark:text-slate-400">No recent fraud alerts.</td></tr>
                                                 ) : (
                                                     recentFraudLogs.map((log) => (
-                                                        <tr key={log.id} className="hover:bg-slate-50">
-                                                            <td className="py-3 text-slate-600 font-mono">{new Date(log.flagged_at).toLocaleString()}</td>
-                                                            <td className="py-3 text-slate-900 font-medium">{log.aadhaar_masked || 'Unknown'}</td>
-                                                            <td className="py-3 text-slate-600">{log.booth_number}</td>
-                                                            <td className="py-3 text-slate-600">{log.fraud_type}</td>
+                                                        <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                                                            <td className="py-3 text-slate-600 font-mono dark:text-slate-300">{new Date(log.flagged_at).toLocaleString()}</td>
+                                                            <td className="py-3 text-slate-900 font-medium dark:text-white">{log.aadhaar_masked || 'Unknown'}</td>
+                                                            <td className="py-3 text-slate-600 dark:text-slate-300">{log.booth_number}</td>
+                                                            <td className="py-3 text-slate-600 dark:text-slate-300">{log.fraud_type}</td>
                                                             <td className="py-3">
-                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${log.reviewed ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${log.reviewed ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'}`}>
                                                                     {log.reviewed ? 'Reviewed' : 'Open'}
                                                                 </span>
                                                             </td>
                                                             <td className="py-3 text-right">
-                                                                <button onClick={() => setActiveTab('fraud')} className="text-janmat-blue font-bold px-3 py-1 bg-slate-100 rounded hover:bg-slate-200">
+                                                                <button onClick={() => setActiveTab('fraud')} className="text-janmat-blue font-bold px-3 py-1 bg-slate-100 rounded hover:bg-slate-200 dark:bg-slate-600 dark:text-janmat-light dark:hover:bg-slate-500">
                                                                     {log.reviewed ? 'View' : 'Review'}
                                                                 </button>
                                                             </td>
@@ -331,7 +337,8 @@ const AdminDashboard = () => {
     };
 
     return (
-        <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
+        <div className="flex h-screen bg-slate-50 dark:bg-slate-900 font-sans overflow-hidden transition-colors duration-300">
+            <Toaster position="top-right" />
             {/* Sidebar */}
             {/* Sidebar */}
             <Sidebar
@@ -351,28 +358,85 @@ const AdminDashboard = () => {
                 ${sidebarCollapsed ? 'md:ml-[111px]' : 'md:ml-[280px]'}
             `}>
                 {/* Top Header */}
-                <header className="flex justify-between items-center p-4 md:p-8 border-b border-slate-200 bg-white shrink-0">
+                <header className="flex justify-between items-center p-4 md:p-8 border-b border-slate-200 bg-white shrink-0 dark:bg-slate-800 dark:border-slate-700 transition-colors duration-300">
                     <div className="flex items-center gap-4">
                         {/* Mobile Menu Button */}
                         <button
                             onClick={() => setSidebarOpen(true)}
-                            className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg md:hidden"
+                            className="p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg md:hidden dark:text-slate-300 dark:hover:bg-slate-700"
                         >
                             <Menu className="w-6 h-6" />
                         </button>
 
                         <div>
-                            <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                            <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
                                 {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
                                 {activeTab === 'dashboard' && <span className="px-2 py-0.5 rounded text-[10px] bg-red-100 text-red-600 uppercase font-bold tracking-wider hidden sm:inline-block">Live</span>}
                             </h2>
-                            <p className="text-xs md:text-sm text-slate-500 mt-1 hidden sm:block">Server time: <span className="font-mono">{currentTime}</span></p>
+                            <p className="text-xs md:text-sm text-slate-500 mt-1 hidden sm:block dark:text-slate-400">Server time: <span className="font-mono">{currentTime}</span></p>
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 md:px-4 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors">
-                            <Download className="w-4 h-4 text-slate-500" />
+                    <div className="flex gap-4 items-center">
+                        {/* Bell Icon for Notifications */}
+                        <div className="relative">
+                            <div
+                                className="relative cursor-pointer hover:bg-slate-50 p-2 rounded-full transition-colors"
+                                onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
+                                title={`${unreadCount} unread alerts`}
+                            >
+                                <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'text-red-500' : 'text-slate-500'}`} />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-1 right-1 flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Dropdown */}
+                            {notificationDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden dark:bg-slate-800 dark:border-slate-700">
+                                    <div className="p-3 border-b border-slate-100 flex justify-between items-center bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+                                        <h3 className="font-bold text-slate-700 text-sm dark:text-slate-200">Notifications</h3>
+                                        {unreadCount > 0 && (
+                                            <button
+                                                onClick={markAllAsRead}
+                                                className="text-xs text-janmat-blue hover:underline font-medium dark:text-janmat-light"
+                                            >
+                                                Clear all
+                                            </button>
+                                        )}
+                                    </div>
+                                    <div className="max-h-64 overflow-y-auto dark:bg-slate-800">
+                                        {recentFraudLogs.filter(l => !l.reviewed).length === 0 ? (
+                                            <p className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">No new alerts.</p>
+                                        ) : (
+                                            recentFraudLogs.filter(l => !l.reviewed).slice(0, 5).map((log, i) => (
+                                                <div key={i} className="p-3 border-b border-slate-50 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:hover:bg-slate-700" onClick={() => { setActiveTab('fraud'); setNotificationDropdownOpen(false); }}>
+                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{log.fraud_type}</p>
+                                                    <p className="text-[10px] text-slate-500 mt-1 flex justify-between dark:text-slate-400">
+                                                        <span>Booth: {log.booth_number}</span>
+                                                        <span>{new Date(log.flagged_at).toLocaleTimeString()}</span>
+                                                    </p>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                    <div className="p-2 border-t border-slate-100 text-center bg-slate-50 dark:bg-slate-900 dark:border-slate-700">
+                                        <button
+                                            onClick={() => { setActiveTab('fraud'); setNotificationDropdownOpen(false); }}
+                                            className="text-xs text-janmat-blue font-bold hover:underline dark:text-janmat-light"
+                                        >
+                                            View all logs
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 md:px-4 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:hover:bg-slate-600">
+                            <Download className="w-4 h-4 text-slate-500 dark:text-slate-300" />
                             <span className="hidden sm:inline">Export Report</span>
                         </button>
                     </div>
@@ -389,18 +453,20 @@ const AdminDashboard = () => {
 
 // Sub-components
 const StatCard = ({ label, value, icon, trend, subtext, color }) => {
-    const borderClass = color === 'blue' ? 'border-janmat-blue' : color === 'red' ? 'border-red-500' : 'border-slate-200';
-    const iconBg = color === 'blue' ? 'bg-blue-50 text-janmat-blue' : color === 'red' ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-600';
+    const borderClass = color === 'blue' ? 'border-janmat-blue' : color === 'red' ? 'border-red-500' : 'border-slate-200 dark:border-slate-700';
+    const iconBg = color === 'blue' ? 'bg-blue-50 text-janmat-blue dark:bg-slate-700 dark:text-janmat-light' : color === 'red' ? 'bg-red-50 text-red-600 dark:bg-red-900 dark:text-red-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
+    const cardBg = 'bg-white dark:bg-slate-800';
+
     return (
-        <div className={`bg-white border text-left p-6 rounded-lg shadow-sm hover:shadow-md transition-all border-l-4 ${borderClass}`}>
+        <div className={`${cardBg} border text-left p-6 rounded-lg shadow-sm hover:shadow-md transition-all border-l-4 ${borderClass}`}>
             <div className="flex justify-between items-start">
                 <div>
-                    <p className="text-slate-500 text-sm font-medium mb-1">{label}</p>
-                    <h3 className={`text-3xl font-bold ${color === 'red' ? 'text-red-600' : 'text-slate-900'}`}>{value}</h3>
+                    <p className="text-slate-500 text-sm font-medium mb-1 dark:text-slate-400">{label}</p>
+                    <h3 className={`text-3xl font-bold ${color === 'red' ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>{value}</h3>
                 </div>
                 <span className={`p-2 rounded-lg ${iconBg}`}>{icon}</span>
             </div>
-            {subtext && <p className={`text-xs mt-4 ${color === 'red' ? 'text-red-600 font-medium' : 'text-slate-500'}`}>{subtext}</p>}
+            {subtext && <p className={`text-xs mt-4 ${color === 'red' ? 'text-red-600 font-medium dark:text-red-400' : 'text-slate-500 dark:text-slate-400'}`}>{subtext}</p>}
         </div>
     );
 };

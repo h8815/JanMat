@@ -22,6 +22,8 @@ urlpatterns = [
     
     # NEW: Detail view mapped here to match frontend expectation
     path('admin/fraud-logs/<uuid:log_id>/', fraud_views.fraud_log_detail, name='fraud_log_detail'),
+    path('admin/notifications/unread-count/', fraud_views.unread_fraud_count, name='unread_fraud_count'),
+    path('admin/notifications/mark-all-reviewed/', fraud_views.mark_all_reviewed, name='mark_all_reviewed'),
     
     path('admin/audit-logs/', views.audit_logs, name='audit_logs'),
     path('admin/voter-stats-chart/', views.voter_stats_chart, name='voter_stats_chart'),
