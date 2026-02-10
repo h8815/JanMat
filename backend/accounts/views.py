@@ -296,7 +296,7 @@ def current_user(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdmin])
 def list_operators(request):
-    """List operators for current admin"""
+    """List operators with performance metrics"""
     try:
         user = request.user
         role = getattr(user, 'role', '')
@@ -304,13 +304,36 @@ def list_operators(request):
         if role == 'ADMIN':
             operators = Operator.objects.filter(created_by=user)
         elif role == 'SUPERUSER':
-             # Superuser sees all
             operators = Operator.objects.all()
         else:
             return Response([])
             
-        return Response([OperatorSerializer(op).data for op in operators])
+        # 1. Annotate with Fraud Counts (ForeignKey relationship)
+        operators = operators.annotate(fraud_count=Count('fraudlog'))
+        
+        # 2. Get Verification Counts (Loose UUID relationship)
+        # Map operator_id -> count
+        op_ids = [op.id for op in operators]
+        voter_counts = (
+            Voter.objects.filter(operator_id__in=op_ids, verified_at__isnull=False)
+            .values('operator_id')
+            .annotate(count=Count('id'))
+        )
+        verification_map = {str(v['operator_id']): v['count'] for v in voter_counts if v['operator_id']}
+        
+        # 3. Construct Response
+        data = []
+        for op in operators:
+            serialized = OperatorSerializer(op).data
+            serialized['metrics'] = {
+                'verifications': verification_map.get(str(op.id), 0),
+                'fraud_flags': op.fraud_count
+            }
+            data.append(serialized)
+            
+        return Response(data)
     except Exception as e:
+        logger.error(f"List Operators error: {e}")
         return Response({'error': 'Failed to load operators'}, status=500)
 
 @api_view(['GET', 'PUT', 'DELETE'])
@@ -349,6 +372,74 @@ def manage_operator(request, pk):
         logger.error(f"Manage Operator error: {e}")
         return Response({'error': 'Operation failed'}, status=500)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def bulk_operator_action(request):
+    """Perform bulk actions on operators"""
+    try:
+        user = request.user
+        role = getattr(user, 'role', '')
+        
+        ids = request.data.get('ids', [])
+        action = request.data.get('action', '')
+        
+        if not ids or not isinstance(ids, list):
+            return Response({'error': 'Invalid or empty ID list'}, status=400)
+            
+        if not action:
+            return Response({'error': 'Action required'}, status=400)
+            
+        # Base Query: Filter by Admin Ownership (Tenant Isolation)
+        if role == 'ADMIN':
+            queryset = Operator.objects.filter(id__in=ids, created_by=user)
+        elif role == 'SUPERUSER':
+            queryset = Operator.objects.filter(id__in=ids)
+        else:
+            return Response({'error': 'Unauthorized'}, status=403)
+            
+        if not queryset.exists():
+            return Response({'error': 'No valid operators found for this action'}, status=404)
+        
+        updated_count = 0
+        
+        if action == 'activate':
+            updated_count = queryset.update(is_active=True)
+            log_action = 'bulk_activate'
+        elif action == 'deactivate':
+            updated_count = queryset.update(is_active=False)
+            log_action = 'bulk_deactivate'
+        elif action == 'delete':
+            # Store count before delete
+            updated_count = queryset.count()
+            queryset.delete()
+            log_action = 'bulk_delete'
+        else:
+            return Response({'error': 'Invalid action. Use activate/deactivate/delete'}, status=400)
+            
+        # Audit Log
+        try:
+            AuditService.log_action(
+                action=log_action,
+                user_type='admin',
+                user_id=user.id,
+                admin_id=user.id if role == 'ADMIN' else None,
+                resource_type='operator',
+                details={'count': updated_count, 'ids': ids},
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+        except Exception as audit_err:
+            logger.warning(f"Audit log failed: {audit_err}")
+
+        return Response({
+            'success': True,
+            'message': f'Successfully performed "{action}" on {updated_count} operators',
+            'count': updated_count
+        })
+
+    except Exception as e:
+        logger.error(f"Bulk action error: {e}")
+        return Response({'error': 'Failed to perform bulk action'}, status=500)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdmin])
 def admin_stats(request):
@@ -376,6 +467,7 @@ def admin_stats(request):
         today = timezone.now().date()
         
         stats = {
+            'active_operators': Operator.objects.filter(is_active=True, **op_filters).count(),
             'total_operators': Operator.objects.filter(**op_filters).count(),
             'total_voters': Voter.objects.filter(**filters).count(),
             'verified_voters': Voter.objects.filter(
@@ -843,53 +935,205 @@ def voter_stats_chart(request):
         
         if period == '7d':
              start_time = now - timezone.timedelta(days=7)
-             trunc_func = TruncDay('verified_at')
+             trunc_class = TruncDay
              date_format = '%Y-%m-%d'
              iterations = 7
              iter_delta = timezone.timedelta(days=1)
         elif period == '30d':
              start_time = now - timezone.timedelta(days=30)
-             trunc_func = TruncDay('verified_at')
+             trunc_class = TruncDay
              date_format = '%Y-%m-%d'
              iterations = 30
              iter_delta = timezone.timedelta(days=1)
         else: # 24h
              start_time = now - timezone.timedelta(hours=24)
-             trunc_func = TruncHour('verified_at')
+             trunc_class = TruncHour
              date_format = '%H:00'
              iterations = 24
              iter_delta = timezone.timedelta(hours=1)
         
-        # Query
+        # Query Voters
         stats = (
             Voter.objects.filter(verified_at__gte=start_time, **filters)
-            .annotate(period_group=trunc_func)
+            .annotate(period_group=trunc_class('verified_at'))
             .values('period_group')
             .annotate(count=Count('id'))
             .order_by('period_group')
         )
         
+        # Query Fraud Logs
+        fraud_filters = {}
+        if role == 'ADMIN':
+            fraud_filters['admin_id'] = user.id
+            
+        fraud_stats = (
+            FraudLog.objects.filter(flagged_at__gte=start_time, **fraud_filters)
+            .annotate(period_group=trunc_class('flagged_at'))
+            .values('period_group')
+            .annotate(count=Count('id'))
+            .order_by('period_group')
+        )
+
         data_map = {}
         for stat in stats:
              if stat['period_group']:
-                 # Localize if needed, but for now simplistic
                  key = stat['period_group'].strftime(date_format)
                  data_map[key] = stat['count']
+
+        fraud_map = {}
+        for stat in fraud_stats:
+             if stat['period_group']:
+                 key = stat['period_group'].strftime(date_format)
+                 fraud_map[key] = stat['count']
 
         # Fill gaps
         labels = []
         data = []
+        fraud_data = []
         
         for i in range(iterations + 1):
              ts = now - (iter_delta * (iterations - i))
              key = ts.strftime(date_format)
              labels.append(key)
              data.append(data_map.get(key, 0))
+             fraud_data.append(fraud_map.get(key, 0))
             
         return Response({
             'labels': labels,
-            'data': data
+            'data': data,
+            'fraud_data': fraud_data
         })
     except Exception as e:
         logger.error(f"Chart stats error: {e}")
         return Response({'error': 'Failed to load chart data'}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def booth_activity_heatmap(request):
+    """Get heatmap data: Booth vs Hour of Day (Last 24h)"""
+    try:
+        user = request.user
+        role = getattr(user, 'role', '')
+        
+        filters = {}
+        if role == 'ADMIN':
+            filters['admin_id'] = user.id
+            
+        # Default to last 24 hours for hourly heatmap
+        now = timezone.now()
+        start_time = now - timezone.timedelta(hours=24)
+        
+        # 1. Fetch Voters (verified in last 24h)
+        # We need operator_id to link to booth
+        voters = (
+            Voter.objects.filter(verified_at__gte=start_time, **filters)
+            .values('operator_id', 'verified_at')
+        )
+        
+        # 2. Get Operator -> Booth Mapping
+        operator_ids = set(v['operator_id'] for v in voters if v['operator_id'])
+        operators = Operator.objects.filter(id__in=operator_ids).values('id', 'booth_id')
+        op_to_booth = {str(op['id']): op['booth_id'] for op in operators}
+        
+        # 3. Aggregate Data in Python
+        # Map: (booth_id, hour_0_23) -> count
+        heatmap_counts = {}
+        all_booths = set()
+        
+        for v in voters:
+            op_id = str(v['operator_id']) if v['operator_id'] else None
+            booth_id = op_to_booth.get(op_id, 'Unknown')
+            
+            # Get Hour (0-23)
+            # verified_at is datetime
+            if v['verified_at']:
+                 # Ensure timezone awareness if needed, usually Django returns aware dt
+                 dt = v['verified_at'].astimezone(timezone.get_current_timezone())
+                 hour = dt.hour
+                 
+                 key = (booth_id, hour)
+                 heatmap_counts[key] = heatmap_counts.get(key, 0) + 1
+                 all_booths.add(booth_id)
+
+        # 4. Format for Frontend
+        data = []
+        for (booth, hour), count in heatmap_counts.items():
+            data.append({
+                'booth': booth,
+                'hour': hour,
+                'time_label': f"{hour:02d}:00",
+                'count': count
+            })
+            
+        # 5. Top Active Booths Filter
+        booth_totals = {}
+        for d in data:
+            bid = d['booth']
+            booth_totals[bid] = booth_totals.get(bid, 0) + d['count']
+            
+        # Sort top 8
+        top_booths = sorted(booth_totals.items(), key=lambda x: x[1], reverse=True)[:8]
+        top_booth_ids = [b[0] for b in top_booths]
+        
+        # Filter data
+        filtered_data = [d for d in data if d['booth'] in top_booth_ids]
+        
+        return Response({
+            'data': filtered_data,
+            'booths': top_booth_ids 
+        })
+    except Exception as e:
+        logger.error(f"Heatmap error: {e}")
+        return Response({'error': 'Failed to load heatmap'}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def fraud_analytics(request):
+    """Get fraud analytics: Distribution by Type & 7-Day Trend"""
+    try:
+        user = request.user
+        role = getattr(user, 'role', '')
+        
+        filters = {}
+        if role == 'ADMIN':
+            filters['admin_id'] = user.id
+            
+        # 1. Distribution by Type
+        # Count frequency of each fraud_type
+        type_distribution = (
+            FraudLog.objects.filter(**filters)
+            .values('fraud_type')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+        
+        # 2. 7-Day Trend
+        # Group by date
+        last_7_days = timezone.now() - timezone.timedelta(days=7)
+        trend_data = (
+            FraudLog.objects.filter(flagged_at__gte=last_7_days, **filters)
+            .annotate(date=TruncDay('flagged_at'))
+            .values('date')
+            .annotate(count=Count('id'))
+            .order_by('date')
+        )
+        
+        # Format Trend Data (Fill gaps)
+        trend_map = {entry['date'].strftime('%Y-%m-%d'): entry['count'] for entry in trend_data if entry['date']}
+        formatted_trend = []
+        
+        for i in range(7):
+            d = (timezone.now() - timezone.timedelta(days=6-i)).date() # today + prev 6 days
+            key = d.strftime('%Y-%m-%d')
+            formatted_trend.append({
+                'date': key,
+                'count': trend_map.get(key, 0)
+            })
+
+        return Response({
+            'distribution': type_distribution,
+            'trend': formatted_trend
+        })
+    except Exception as e:
+        logger.error(f"Fraud Analytics error: {e}")
+        return Response({'error': 'Failed to load analytics'}, status=500)
