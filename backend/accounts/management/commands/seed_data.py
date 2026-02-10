@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 from accounts.models import SuperAdmin, Admin, Operator
 from fraud.models import FraudLog, AuditLog
-from verification.models import Voter
+from verification.models import Voter, BiometricTemplate
 import random
 from datetime import timedelta
 
@@ -11,6 +11,12 @@ class Command(BaseCommand):
     help = 'Seeds the database with 50+ demo records'
 
     def handle(self, *args, **kwargs):
+        self.stdout.write('Cleaning up old data...')
+        FraudLog.objects.all().delete()
+        AuditLog.objects.all().delete()
+        Voter.objects.all().delete()
+        BiometricTemplate.objects.all().delete()
+        
         self.stdout.write('Seeding Multi-Tenant Data...')
         
         # 1. SuperAdmins
@@ -129,8 +135,46 @@ class Command(BaseCommand):
                         date_of_birth="1985-05-20",
                         gender=random.choice(['Male', 'Female']),
                         admin_id=admin.id,
+                        # Link to random operator for this admin
+                        operator_id=random.choice([op.id for op in all_operators if op.created_by_id == admin.id]),
                         verified_at=fake_time if random.choice([True, False]) else None,
                         has_voted=False
+                    )
+
+        # 5.1 Heatmap Specific Data (Last 24 Hours)
+        self.stdout.write('Seeding Heatmap Data (Last 24h)...')
+        for admin in admins:
+            # Pick 5 active operators
+            my_ops = [op for op in all_operators if op.created_by_id == admin.id][:5]
+            if not my_ops: continue
+
+            for op in my_ops:
+                # Create a "burst" of activity for this booth
+                # e.g., heavy traffic at 10 AM and 4 PM
+                peak_hours = [10, 11, 16, 17]
+                
+                # Create 30 voters per booth
+                for i in range(30):
+                    # skew towards peak hours
+                    if random.random() > 0.5:
+                         hour_offset = random.choice(peak_hours) # 10h ago, etc.
+                    else:
+                         hour_offset = random.randint(0, 23)
+                    
+                    event_time = timezone.now() - timedelta(hours=hour_offset)
+                    # Add some random minutes variation
+                    event_time = event_time + timedelta(minutes=random.randint(-30, 30))
+
+                    Voter.objects.create(
+                        aadhaar_number=f"{random.randint(100000000000, 999999999999)}",
+                        full_name=f"Voter {i} at Booth {op.booth_id}",
+                        date_of_birth="1992-01-01",
+                        gender=random.choice(['Male', 'Female']),
+                        admin_id=admin.id,
+                        operator_id=op.id,
+                        verified_at=event_time,
+                        has_voted=True,
+                        photo_url=f"https://api.dicebear.com/7.x/avataaars/svg?seed={random.randint(1,1000)}"
                     )
 
         self.stdout.write(self.style.SUCCESS(f'Database populated! SuperAdmins: 2, Admins: {len(admins)}, Operators: {len(all_operators)}'))

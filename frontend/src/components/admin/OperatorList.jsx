@@ -10,6 +10,9 @@ const OperatorList = () => {
     const [currentOperator, setCurrentOperator] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState({ key: 'verifications', direction: 'desc' });
+
     const fetchOperators = async () => {
         setLoading(true);
         try {
@@ -42,14 +45,81 @@ const OperatorList = () => {
         setIsEditModalOpen(true);
     };
 
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const filteredOperators = operators.filter(op =>
         (op.full_name || op.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (op.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (op.booth_id || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const sortedOperators = [...filteredOperators].sort((a, b) => {
+        let aValue, bValue;
+
+        if (sortConfig.key === 'verifications') {
+            aValue = a.metrics?.verifications || 0;
+            bValue = b.metrics?.verifications || 0;
+        } else if (sortConfig.key === 'fraud') {
+            aValue = a.metrics?.fraud_flags || 0;
+            bValue = b.metrics?.fraud_flags || 0;
+        } else {
+            // Default string sort
+            aValue = a[sortConfig.key] || '';
+            bValue = b[sortConfig.key] || '';
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Helper for Sort Icon
+    const SortIcon = ({ column }) => {
+        if (sortConfig.key !== column) return <div className="w-3 h-3 inline-block ml-1 opacity-20">↕</div>;
+        return <div className="w-3 h-3 inline-block ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</div>;
+    };
+
+    // Performance Stats
+    const totalVerifications = operators.reduce((sum, op) => sum + (op.metrics?.verifications || 0), 0);
+    const totalFraud = operators.reduce((sum, op) => sum + (op.metrics?.fraud_flags || 0), 0);
+    const topPerformer = [...operators].sort((a, b) => (b.metrics?.verifications || 0) - (a.metrics?.verifications || 0))[0];
+
     return (
         <div className="space-y-6">
+            {/* Performance Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                    <p className="text-slate-500 text-sm font-medium mb-1 dark:text-slate-400">Top Performer</p>
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-yellow-100 text-yellow-700 flex items-center justify-center font-bold">
+                            {topPerformer ? (topPerformer.full_name || topPerformer.name || 'O').charAt(0) : '-'}
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-800 dark:text-white">{topPerformer ? (topPerformer.full_name || topPerformer.name) : 'No Data'}</h3>
+                            <p className="text-xs text-slate-500 font-mono dark:text-slate-400">{topPerformer ? `${topPerformer.metrics?.verifications} Verifications` : ''}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                    <p className="text-slate-500 text-sm font-medium mb-1 dark:text-slate-400">Total Operator Activity</p>
+                    <h3 className="text-3xl font-bold text-slate-800 dark:text-white">{totalVerifications}</h3>
+                    <p className="text-xs text-green-600 font-medium mt-1">Successful Verifications</p>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                    <p className="text-slate-500 text-sm font-medium mb-1 dark:text-slate-400">Security Risks Triggered</p>
+                    <h3 className="text-3xl font-bold text-red-600 dark:text-red-400">{totalFraud}</h3>
+                    <p className="text-xs text-slate-500 mt-1 dark:text-slate-400">Across all operators</p>
+                </div>
+            </div>
+
             <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                 <div className="relative w-96">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -90,20 +160,27 @@ const OperatorList = () => {
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                     <thead className="bg-slate-50 dark:bg-slate-900">
                         <tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Operator Name</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400 cursor-pointer hover:text-janmat-blue" onClick={() => handleSort('full_name')}>
+                                Operator Name <SortIcon column="full_name" />
+                            </th>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Booth ID</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Last Login</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400 cursor-pointer hover:text-janmat-blue" onClick={() => handleSort('verifications')}>
+                                Verifications <SortIcon column="verifications" />
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400 cursor-pointer hover:text-janmat-blue" onClick={() => handleSort('fraud')}>
+                                Fraud Flags <SortIcon column="fraud" />
+                            </th>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Status</th>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
                         {loading ? (
-                            <tr><td colSpan="5" className="p-8 text-center dark:text-slate-400">Loading operators...</td></tr>
-                        ) : filteredOperators.length === 0 ? (
-                            <tr><td colSpan="5" className="p-8 text-center text-slate-500 dark:text-slate-400">No operators found.</td></tr>
+                            <tr><td colSpan="6" className="p-8 text-center dark:text-slate-400">Loading operators...</td></tr>
+                        ) : sortedOperators.length === 0 ? (
+                            <tr><td colSpan="6" className="p-8 text-center text-slate-500 dark:text-slate-400">No operators found.</td></tr>
                         ) : (
-                            filteredOperators.map((op) => (
+                            sortedOperators.map((op) => (
                                 <tr key={op.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
@@ -119,8 +196,21 @@ const OperatorList = () => {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700 font-mono font-bold dark:text-slate-300">
                                         {op.booth_id}
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
-                                        {op.last_login ? new Date(op.last_login).toLocaleString() : 'Never'}
+                                    {/* Metrics: Verifications */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="flex items-center gap-1">
+                                            <span className="font-bold text-slate-700 dark:text-white">{op.metrics?.verifications || 0}</span>
+                                        </div>
+                                    </td>
+                                    {/* Metrics: Fraud */}
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        {op.metrics?.fraud_flags > 0 ? (
+                                            <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-bold dark:bg-red-900 dark:text-red-200">
+                                                {op.metrics.fraud_flags} Flags
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-slate-400 dark:text-slate-500">None</span>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${op.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'

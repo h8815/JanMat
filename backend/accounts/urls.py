@@ -28,6 +28,8 @@ urlpatterns = [
     path('admin/audit-logs/', views.audit_logs, name='audit_logs'),
     path('admin/voter-stats-chart/', views.voter_stats_chart, name='voter_stats_chart'),
     path('admin/export-report/', views.export_admin_report, name='export_admin_report'),
+    path('admin/heatmap-data/', views.booth_activity_heatmap, name='booth_activity_heatmap'),
+    path('admin/fraud-analytics/', views.fraud_analytics, name='fraud_analytics'),
     
     # Health check
     path('health/', views.health_check, name='auth_health_check'),

@@ -69,6 +69,20 @@ def fraud_logs(request):
             queryset = queryset.filter(reviewed=True)
         elif status_filter == 'pending':
             queryset = queryset.filter(reviewed=False)
+            
+        # NEW: 3.1 Date Range Filter
+        start_date = request.GET.get('start_date', '').strip()
+        end_date = request.GET.get('end_date', '').strip()
+        
+        if start_date:
+            queryset = queryset.filter(flagged_at__date__gte=start_date)
+        if end_date:
+            queryset = queryset.filter(flagged_at__date__lte=end_date)
+            
+        # NEW: 3.2 Booth Filter
+        booth_id = request.GET.get('booth_id', '').strip()
+        if booth_id:
+             queryset = queryset.filter(booth_number__icontains=booth_id)
 
         # 4. Pagination
         page_number = int(request.GET.get('page', 1))
