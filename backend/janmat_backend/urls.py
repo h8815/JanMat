@@ -12,3 +12,8 @@ urlpatterns = [
     path('api/verification/', include('verification.urls')),
     path('api/fraud/', include('fraud.urls')),
 ]
+
+admin.site.site_header = "JanMat Administration"
+admin.site.site_title = "JanMat Admin Portal"
+admin.site.index_title = "Welcome to JanMat Administration"
+admin.site.site_url = None  # Remove "View Site" link to prevent navigation to broken homepage

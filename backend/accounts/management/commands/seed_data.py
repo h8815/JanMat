@@ -7,8 +7,16 @@ from verification.models import Voter, BiometricTemplate
 import random
 from datetime import timedelta
 
+# Sample Data for Randomization
+FIRST_NAMES = ['Aarav', 'Vihaan', 'Aditya', 'Sai', 'Reyansh', 'Arjun', 'Vivaan', 'Rohan', 'Ishaan', 'Ayaan', 'Diya', 'Saanvi', 'Ananya', 'Aadhya', 'Pari', 'Anika', 'Navya', 'Myra', 'Riya', 'Kavya']
+LAST_NAMES = ['Sharma', 'Verma', 'Gupta', 'Singh', 'Kumar', 'Patel', 'Yadav', 'Das', 'Reddy', 'Nair', 'Mehta', 'Jain', 'Chopra', 'Malhotra', 'Saxena', 'Bhatia', 'Kapoor', 'Khan', 'Joshi', 'Mishra']
+CITIES = ['Delhi', 'Mumbai', 'Chennai', 'Kolkata', 'Bangalore', 'Hyderabad', 'Pune', 'Ahmedabad', 'Jaipur', 'Lucknow']
+
+def get_random_name():
+    return f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
+
 class Command(BaseCommand):
-    help = 'Seeds the database with 50+ demo records'
+    help = 'Seeds the database with randomized demo records'
 
     def handle(self, *args, **kwargs):
         self.stdout.write('Cleaning up old data...')
@@ -25,11 +33,8 @@ class Command(BaseCommand):
         
         # 2. Tenant Admins (Districts)
         admins = []
-        # Admin 1 (Delhi) - The original one for backward compatibility
+        # Admin 1 (Delhi)
         delhi_admin, _ = Admin.objects.get_or_create(email='admin@gmail.com', defaults={'name': 'Delhi Admin', 'password': make_password('123'), 'created_by': sa1})
-        if delhi_admin.name != 'Delhi Admin':
-            delhi_admin.name = 'Delhi Admin'
-            delhi_admin.save()
         admins.append(delhi_admin)
 
         # Admin 2 (Mumbai)
@@ -40,159 +45,165 @@ class Command(BaseCommand):
         chennai_admin, _ = Admin.objects.get_or_create(email='chennai@janmat.com', defaults={'name': 'Chennai Admin', 'password': make_password('123'), 'created_by': sa2})
         admins.append(chennai_admin)
 
-        self.stdout.write(f'Ensured {len(admins)} Tenant Admins: Delhi, Mumbai, Chennai')
+        self.stdout.write(f'Ensured {len(admins)} Tenant Admins')
 
-        # 3. Create 30 Operators (10 per Admin)
+        # 3. Create Operators (Random 8-12 per Admin)
         all_operators = []
         for admin_idx, admin in enumerate(admins):
             prefix = ['DL', 'MH', 'TN'][admin_idx]
-            for i in range(1, 11):
-                booth_num = f"{prefix}-{i:03d}"
+            num_ops = random.randint(8, 12)
+            for i in range(1, num_ops + 1):
+                booth_num = f"{prefix}-{random.randint(100, 999)}"
                 op_email = f"op.{prefix.lower()}{i}@janmat.com"
                 
-                # Cleanup old duplicates if needed (simple check)
                 Operator.objects.filter(booth_id=booth_num).delete()
 
                 op, _ = Operator.objects.get_or_create(
                     email=op_email,
                     defaults={
                         'password': make_password('123'),
-                        'name': f"{prefix} Operator {i}",
+                        'name': f"{get_random_name()} ({prefix})",
                         'booth_id': booth_num,
                         'created_by': admin,
                         'is_active': random.choice([True, True, True, False])
                     }
                 )
-                # Ensure correct ownership if it already existed
                 if op.created_by != admin:
                     op.created_by = admin
                     op.save()
                     
                 all_operators.append(op)
 
-        self.stdout.write(f'Ensured {len(all_operators)} Operators distributed across tenants')
+        self.stdout.write(f'Ensured Operators distributed across tenants')
 
-        self.stdout.write('4. Creating Realistic Fraud Scenarios...')
+        self.stdout.write('4. Creating Random Fraud Scenarios...')
 
         # Voter Helper
-        def ensure_voter(admin_obj, aadhaar, name, voted=False):
-            v, _ = Voter.objects.get_or_create(
+        def ensure_voter(admin_obj, aadhaar, name=None, voted=False, created_time=None):
+            if not name:
+                name = get_random_name()
+            
+            # Randomize DOB
+            dob_year = random.randint(1960, 2005)
+            dob = f"{dob_year}-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
+
+            v, created = Voter.objects.get_or_create(
                 aadhaar_number=aadhaar,
                 admin_id=admin_obj.id,
                 defaults={
                     'full_name': name,
-                    'date_of_birth': "1990-01-01",
+                    'date_of_birth': dob,
                     'gender': random.choice(['Male', 'Female']),
                     'has_voted': voted,
-                    'full_address': f"123 Street, {admin_obj.name.split()[0]}",
+                    'full_address': f"{random.randint(1, 999)} Street, {random.choice(CITIES)}",
                     'photo_url': f"https://api.dicebear.com/7.x/avataaars/svg?seed={aadhaar}"
                 }
             )
+            
+            # Force update created_at for charts
+            if created_time:
+                Voter.objects.filter(id=v.id).update(created_at=created_time)
+            
             return v
 
         # Generate Logs
         fraud_types = ['duplicate_biometric', 'multiple_otp_attempts', 'already_voted', 'invalid_session', 'suspicious_activity']
         
         for admin in admins:
-            # Filter operators for this admin
             my_ops = [op for op in all_operators if op.created_by_id == admin.id]
             if not my_ops: continue
 
-            # generate 20 logs per admin
-            for i in range(20):
+            # Randomize log count (20-50 logs)
+            num_logs = random.randint(20, 50)
+            for i in range(num_logs):
                 op = random.choice(my_ops)
                 f_type = random.choice(fraud_types)
                 aadhaar = f"{random.randint(100000000000, 999999999999)}"
-                
-                # Ensure linked voter exists for context
-                voter_name = f"Voter {i} of {admin.name}"
                 is_voted = (f_type == 'already_voted')
                 
-                ensure_voter(admin, aadhaar, voter_name, voted=is_voted)
+                # Distribution: 40% last 24h, 40% last 7d, 20% last 30d
+                rand_val = random.random()
+                if rand_val < 0.4:
+                    # Last 24 hours
+                    fake_time = timezone.now() - timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59))
+                elif rand_val < 0.8:
+                    # Last 2-7 days
+                    fake_time = timezone.now() - timedelta(days=random.randint(1, 6), hours=random.randint(0, 23))
+                else:
+                    # Last 8-30 days
+                    fake_time = timezone.now() - timedelta(days=random.randint(7, 29))
+
+                ensure_voter(admin, aadhaar, voted=is_voted, created_time=fake_time)
                 
-                FraudLog.objects.create(
+                log = FraudLog.objects.create(
                     fraud_type=f_type,
                     aadhaar_number=aadhaar,
                     booth_number=op.booth_id,
-                    details={'reason': f'Simulated {f_type}'},
+                    details={'reason': f'Simulated {f_type} randomly'},
                     operator=op,
                     admin=admin,
                     reviewed=random.choice([True, False]),
-                    flagged_at=timezone.now() - timedelta(hours=random.randint(0, 100))
+                    flagged_at=fake_time
                 )
+                # Force update created_at/flagged_at just in case
+                FraudLog.objects.filter(id=log.id).update(flagged_at=fake_time)
 
-        self.stdout.write('Created Fraud Logs for all tenants')
+        self.stdout.write('Created Randomized Fraud Logs')
 
-        # 5. Background Voters for Stats
+        # 5. Background Voters for Stats (Verified Voters Chart)
         self.stdout.write('Seeding background voters...')
         for admin in admins:
-            if Voter.objects.filter(admin_id=admin.id).count() < 50:
-                for i in range(50):
-                    fake_time = timezone.now() - timedelta(days=random.randint(0, 30))
-                    Voter.objects.create(
-                        aadhaar_number=f"{random.randint(100000000000, 999999999999)}",
-                        full_name=f"Citizen {i}",
-                        date_of_birth="1985-05-20",
-                        gender=random.choice(['Male', 'Female']),
-                        admin_id=admin.id,
-                        # Link to random operator for this admin
-                        operator_id=random.choice([op.id for op in all_operators if op.created_by_id == admin.id]),
-                        verified_at=fake_time if random.choice([True, False]) else None,
-                        has_voted=False
-                    )
-
-        # 5.1 Heatmap Specific Data (Last 24 Hours)
-        self.stdout.write('Seeding Heatmap Data (Last 24h)...')
-        for admin in admins:
-            # Pick 5 active operators
-            my_ops = [op for op in all_operators if op.created_by_id == admin.id][:5]
-            if not my_ops: continue
-
-            for op in my_ops:
-                # Create a "burst" of activity for this booth
-                # e.g., heavy traffic at 10 AM and 4 PM
-                peak_hours = [10, 11, 16, 17]
+            # Randomize background voter count (50-100)
+            target_voters = random.randint(50, 100)
+            current_count = Voter.objects.filter(admin_id=admin.id).count()
+            
+            # Create fresh batch
+            for i in range(target_voters):
+                # Bucketed Time Distribution for Charts
+                rand_val = random.random()
+                if rand_val < 0.4:
+                    # Last 24 hours (High density for daily chart)
+                    fake_time = timezone.now() - timedelta(hours=random.randint(0, 23), minutes=random.randint(0, 59))
+                elif rand_val < 0.8:
+                    # Last 7 days
+                    fake_time = timezone.now() - timedelta(days=random.randint(1, 6), hours=random.randint(0, 23))
+                else:
+                    # Last 30 days
+                    fake_time = timezone.now() - timedelta(days=random.randint(7, 29))
                 
-                # Create 30 voters per booth
-                for i in range(30):
-                    # skew towards peak hours
-                    if random.random() > 0.5:
-                         hour_offset = random.choice(peak_hours) # 10h ago, etc.
-                    else:
-                         hour_offset = random.randint(0, 23)
-                    
-                    event_time = timezone.now() - timedelta(hours=hour_offset)
-                    # Add some random minutes variation
-                    event_time = event_time + timedelta(minutes=random.randint(-30, 30))
+                dob_year = random.randint(1950, 2004)
+                dob = f"{dob_year}-{random.randint(1,12):02d}-{random.randint(1,28):02d}"
 
-                    Voter.objects.create(
-                        aadhaar_number=f"{random.randint(100000000000, 999999999999)}",
-                        full_name=f"Voter {i} at Booth {op.booth_id}",
-                        date_of_birth="1992-01-01",
-                        gender=random.choice(['Male', 'Female']),
-                        admin_id=admin.id,
-                        operator_id=op.id,
-                        verified_at=event_time,
-                        has_voted=True,
-                        photo_url=f"https://api.dicebear.com/7.x/avataaars/svg?seed={random.randint(1,1000)}"
-                    )
+                v = Voter.objects.create(
+                    aadhaar_number=f"{random.randint(100000000000, 999999999999)}",
+                    full_name=get_random_name(),
+                    date_of_birth=dob,
+                    gender=random.choice(['Male', 'Female']),
+                    admin_id=admin.id,
+                    operator_id=random.choice([op.id for op in all_operators if op.created_by_id == admin.id]),
+                    verified_at=fake_time if random.choice([True, False, True]) else None, 
+                    has_voted=random.choice([True, False])
+                )
+                # Force update created_at for charts
+                Voter.objects.filter(id=v.id).update(created_at=fake_time)
 
-        self.stdout.write(self.style.SUCCESS(f'Database populated! SuperAdmins: 2, Admins: {len(admins)}, Operators: {len(all_operators)}'))
+        self.stdout.write(self.style.SUCCESS(f'Database randomized!'))
 
-        # 6. Create Audit Logs for All Admins
+        # 6. Create Audit Logs
         self.stdout.write('Seeding Audit Logs...')
         actions = ['login', 'logout', 'otp_sent', 'admin_action', 'operator_created', 'password_change', 'report_export']
         
         for admin in admins:
-            # Generate 20 audit logs per admin
-            for i in range(20):
+            # Randomize audit log count (10-40)
+            num_audits = random.randint(10, 40)
+            for i in range(num_audits):
                 action = random.choice(actions)
                 details_map = {
                     'login': {'method': 'password', 'status': 'success'},
                     'logout': {},
                     'otp_sent': {'recipient': f'98765{random.randint(10000,99999)}'},
                     'admin_action': {'target': 'settings', 'change': 'profile_update'},
-                    'operator_created': {'booth': f'NewBooth-{i}'},
+                    'operator_created': {'booth': f'NewBooth-{random.randint(100,999)}'},
                     'password_change': {'user_id': str(admin.id)},
                     'report_export': {'format': 'pdf'}
                 }
@@ -204,8 +215,7 @@ class Command(BaseCommand):
                     admin=admin,
                     details=details_map.get(action, {'info': 'Log entry'}),
                     ip_address=f'192.168.1.{random.randint(1, 255)}',
-                    created_at=timezone.now() - timedelta(hours=random.randint(0, 100))
+                    created_at=timezone.now() - timedelta(hours=random.randint(0, 100), minutes=random.randint(0, 59))
                 )
 
-        self.stdout.write(self.style.SUCCESS('Seeded Audit Logs for all tenants!'))
-
+        self.stdout.write(self.style.SUCCESS('Seeding Complete!'))

@@ -17,6 +17,7 @@ urlpatterns = [
     path('admin/create-operator/', views.create_operator, name='create_operator'),
     path('admin/operators/', views.list_operators, name='list_operators'),
     path('admin/operators/<uuid:pk>/', views.manage_operator, name='manage_operator'),
+    path('admin/operators/bulk/', views.bulk_operator_action, name='bulk_operator_action'),
     path('admin/stats/', views.admin_stats, name='admin_stats'),
     path('admin/fraud-logs/', fraud_views.fraud_logs, name='fraud_logs'),
     
@@ -27,9 +28,9 @@ urlpatterns = [
     
     path('admin/audit-logs/', views.audit_logs, name='audit_logs'),
     path('admin/voter-stats-chart/', views.voter_stats_chart, name='voter_stats_chart'),
+
+
     path('admin/export-report/', views.export_admin_report, name='export_admin_report'),
-    path('admin/heatmap-data/', views.booth_activity_heatmap, name='booth_activity_heatmap'),
-    path('admin/fraud-analytics/', views.fraud_analytics, name='fraud_analytics'),
     
     # Health check
     path('health/', views.health_check, name='auth_health_check'),

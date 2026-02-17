@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../../api/axios';
-import { RefreshCw, AlertTriangle, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, X, BarChart2, TrendingUp } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, X, BarChart2, TrendingUp, Download } from 'lucide-react';
 import { Bar, Line } from 'react-chartjs-2';
 import {
     Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend
@@ -68,22 +68,9 @@ const FraudLogTable = () => {
         }
     };
 
-    const [analytics, setAnalytics] = useState({ distribution: [], trend: [] });
-    const [showAnalytics, setShowAnalytics] = useState(true);
-
     useEffect(() => {
         fetchLogs();
-        fetchAnalytics();
     }, [filters.page, filters.type, filters.status, filters.search, filters.start_date, filters.end_date, filters.booth_id]);
-
-    const fetchAnalytics = async () => {
-        try {
-            const res = await axios.get('/auth/admin/fraud-analytics/');
-            setAnalytics(res.data);
-        } catch (error) {
-            console.error("Analytics fetch error", error);
-        }
-    };
 
     const handleRowClick = async (logId) => {
         try {
@@ -128,171 +115,61 @@ const FraudLogTable = () => {
                 <div>
                     <h3 className="font-bold text-slate-800 text-lg dark:text-white flex items-center gap-2">
                         Security Incidents & Fraud Attempts
-                        <button
-                            onClick={() => setShowAnalytics(!showAnalytics)}
-                            className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 hover:text-slate-700 dark:bg-slate-700 dark:text-slate-400"
-                        >
-                            {showAnalytics ? 'Hide Analytics' : 'Show Analytics'}
-                        </button>
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400">Monitor and review flagged polling activities</p>
                 </div>
 
-                {/* Analytics Section */}
-                {showAnalytics && (
-                    <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4 mb-2 animate-in fade-in slide-in-from-top-4 duration-300">
-                        {/* Distribution Chart */}
-                        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700 h-64">
-                            <h4 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2 dark:text-slate-300">
-                                <BarChart2 className="w-4 h-4" /> Fraud Types Distribution
-                            </h4>
-                            <div className="h-52 w-full">
-                                <Bar
-                                    data={{
-                                        labels: analytics.distribution.map(d => d.fraud_type.replace(/_/g, ' ').toUpperCase()),
-                                        datasets: [{
-                                            label: 'Incidents',
-                                            data: analytics.distribution.map(d => d.count),
-                                            backgroundColor: '#EF4444',
-                                            borderRadius: 4,
-                                        }]
-                                    }}
-                                    options={{
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        indexAxis: 'y',
-                                        plugins: { legend: { display: false } },
-                                        scales: { x: { grid: { display: false } } }
-                                    }}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Trend Chart */}
-                        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700 h-64">
-                            <h4 className="text-sm font-bold text-slate-700 mb-2 flex items-center gap-2 dark:text-slate-300">
-                                <TrendingUp className="w-4 h-4" /> 7-Day Trend
-                            </h4>
-                            <div className="h-52 w-full">
-                                <Line
-                                    data={{
-                                        labels: analytics.trend.map(d => d.date.split('-').slice(1).join('/')), // MM/DD
-                                        datasets: [{
-                                            label: 'Daily Alerts',
-                                            data: analytics.trend.map(d => d.count),
-                                            borderColor: '#F59E0B', // Amber
-                                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                                            fill: true,
-                                            tension: 0.4
-                                        }]
-                                    }}
-                                    options={{
-                                        responsive: true,
-                                        maintainAspectRatio: false,
-                                        plugins: { legend: { display: false } },
-                                        scales: {
-                                            y: { beginAtZero: true, ticks: { stepSize: 1 } },
-                                            x: { grid: { display: false } }
-                                        }
-                                    }}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex flex-col gap-2 w-full md:w-auto">
-                    {/* Filter Row 1 */}
-                    <div className="flex flex-wrap gap-2">
-                        {/* Search */}
-                        <div className="relative flex-grow md:flex-grow-0">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                            <input
-                                type="text"
-                                placeholder="Search Aadhaar..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue outline-none w-full md:w-48 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                            />
-                            {searchQuery && (
-                                <button
-                                    onClick={() => setSearchQuery('')}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                                >
-                                    <X className="w-3 h-3" />
-                                </button>
-                            )}
-                        </div>
-
-                        <select
-                            className="px-3 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue outline-none bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                            value={filters.type}
-                            onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value, page: 1 }))}
-                        >
-                            <option value="">All Fraud Types</option>
-                            <option value="duplicate_biometric">Duplicate Biometric</option>
-                            <option value="multiple_otp_attempts">Multiple OTPs</option>
-                            <option value="already_voted">Already Voted</option>
-                            <option value="invalid_session">Invalid Session</option>
-                            <option value="suspicious_activity">Suspicious Activity</option>
-                        </select>
-
-                        <select
-                            className="px-3 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue outline-none bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                            value={filters.status}
-                            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value, page: 1 }))}
-                        >
-                            <option value="">All Status</option>
-                            <option value="pending">Pending Review</option>
-                            <option value="reviewed">Reviewed</option>
-                        </select>
-                    </div>
-
-                    {/* Filter Row 2: Advanced */}
-                    <div className="flex flex-wrap gap-2 items-center">
-                        <input
-                            type="date"
-                            value={filters.start_date}
-                            onChange={(e) => setFilters(prev => ({ ...prev, start_date: e.target.value, page: 1 }))}
-                            className="px-2 py-1.5 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                            title="Start Date"
-                        />
-                        <span className="text-slate-400 text-xs">to</span>
-                        <input
-                            type="date"
-                            value={filters.end_date}
-                            onChange={(e) => setFilters(prev => ({ ...prev, end_date: e.target.value, page: 1 }))}
-                            className="px-2 py-1.5 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                            title="End Date"
-                        />
+                <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
+                    {/* Search */}
+                    <div className="relative flex-grow md:flex-grow-0">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Booth ID..."
-                            value={filters.booth_id}
-                            onChange={(e) => setFilters(prev => ({ ...prev, booth_id: e.target.value, page: 1 }))}
-                            className="px-2 py-1.5 text-xs border border-slate-300 rounded w-24 focus:ring-1 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                            placeholder="Search Aadhaar..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 pr-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue outline-none w-full md:w-48 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                         />
-
-                        {(filters.start_date || filters.end_date || filters.booth_id || filters.type || filters.status || filters.search) && (
+                        {searchQuery && (
                             <button
-                                onClick={() => {
-                                    setFilters({ type: '', status: '', start_date: '', end_date: '', booth_id: '', page: 1, limit: 10 });
-                                    setSearchQuery('');
-                                }}
-                                className="text-xs text-red-500 hover:text-red-700 underline px-2"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                             >
-                                Clear
+                                <X className="w-3 h-3" />
                             </button>
                         )}
-
-                        <button
-                            onClick={fetchLogs}
-                            className="ml-auto p-2 text-slate-600 hover:bg-slate-100 rounded border border-slate-300 transition-colors dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-600"
-                            title="Refresh"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                        </button>
                     </div>
+
+                    <select
+                        className="px-3 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue outline-none bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                        value={filters.type}
+                        onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value, page: 1 }))}
+                    >
+                        <option value="">All Fraud Types</option>
+                        <option value="duplicate_biometric">Duplicate Biometric</option>
+                        <option value="multiple_otp_attempts">Multiple OTPs</option>
+                        <option value="already_voted">Already Voted</option>
+                        <option value="invalid_session">Invalid Session</option>
+                        <option value="suspicious_activity">Suspicious Activity</option>
+                    </select>
+
+                    <select
+                        className="px-3 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue outline-none bg-white dark:bg-slate-700 dark:border-slate-600 dark:text-white"
+                        value={filters.status}
+                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value, page: 1 }))}
+                    >
+                        <option value="">All Status</option>
+                        <option value="pending">Pending Review</option>
+                        <option value="reviewed">Reviewed</option>
+                    </select>
+
+                    <button
+                        onClick={fetchLogs}
+                        className="p-2 text-slate-600 hover:bg-slate-100 rounded border border-slate-300 transition-colors dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-600 ml-auto md:ml-0"
+                        title="Refresh"
+                    >
+                        <RefreshCw className="w-4 h-4" />
+                    </button>
                 </div>
             </div>
 
@@ -474,6 +351,8 @@ const FraudLogTable = () => {
                     </div>
                 </div>
             )}
+
+
         </div>
     );
 };

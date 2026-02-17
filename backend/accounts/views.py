@@ -858,6 +858,68 @@ def export_admin_report(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdmin])
+def voter_stats_chart(request):
+    """
+    Get aggregated voter verification and fraud stats for charts
+    Period: '24h', '7d', '30d'
+    """
+    try:
+        period = request.GET.get('period', '24h')
+        now = timezone.now()
+        
+        if period == '24h':
+            start_time = now - timezone.timedelta(hours=24)
+            trunc_func = TruncHour('created_at')
+            trunc_func_fraud = TruncHour('flagged_at')
+            date_format = '%H:00'
+            all_points = [(start_time + timezone.timedelta(hours=i)).strftime(date_format) for i in range(25)]
+        elif period == '7d':
+            start_time = now - timezone.timedelta(days=7)
+            trunc_func = TruncDay('created_at')
+            trunc_func_fraud = TruncDay('flagged_at')
+            date_format = '%Y-%m-%d'
+            all_points = [(start_time + timezone.timedelta(days=i)).strftime(date_format) for i in range(8)]
+        else: # 30d
+            start_time = now - timezone.timedelta(days=30)
+            trunc_func = TruncDay('created_at')
+            trunc_func_fraud = TruncDay('flagged_at')
+            date_format = '%Y-%m-%d'
+            all_points = [(start_time + timezone.timedelta(days=i)).strftime(date_format) for i in range(31)]
+
+        # 1. Verified Voters Scans
+        voters = Voter.objects.filter(created_at__gte=start_time)\
+            .annotate(period=trunc_func)\
+            .values('period')\
+            .annotate(count=Count('id'))\
+            .order_by('period')
+
+        # 2. Fraud Alerts
+        fraud = FraudLog.objects.filter(flagged_at__gte=start_time)\
+            .annotate(period=trunc_func_fraud)\
+            .values('period')\
+            .annotate(count=Count('id'))\
+            .order_by('period')
+
+        # Map to labels
+        data_map = {item['period'].strftime(date_format): item['count'] for item in voters}
+        fraud_map = {item['period'].strftime(date_format): item['count'] for item in fraud}
+
+        final_voters = [data_map.get(label, 0) for label in all_points]
+        final_fraud = [fraud_map.get(label, 0) for label in all_points]
+
+        return Response({
+            'labels': all_points,
+            'data': final_voters,
+            'fraud_data': final_fraud
+        })
+    except Exception as e:
+        logger.error(f"Chart error: {e}")
+        return Response({'labels': [], 'data': [], 'fraud_data': []})
+
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdmin])
 def audit_logs(request):
     """Get audit logs with search, filtering, and pagination"""
     try:
@@ -867,10 +929,11 @@ def audit_logs(request):
         # Base Query
         if role == 'ADMIN':
             queryset = AuditLog.objects.filter(admin_id=user.id)
-        else:
-            # Superuser
+        elif role == 'SUPERUSER':
             queryset = AuditLog.objects.all()
-            
+        else:
+             queryset = AuditLog.objects.none()
+             
         queryset = queryset.order_by('-created_at')
 
         # 1. Search (Action, Details, IP, Actor)
@@ -917,223 +980,3 @@ def audit_logs(request):
     except Exception as e:
         logger.error(f"Audit log error: {e}")
         return Response({'error': 'Failed to load audit logs'}, status=500)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdmin])
-def voter_stats_chart(request):
-    """Get voter statistics for charts (e.g., hourly/daily)"""
-    try:
-        user = request.user
-        role = getattr(user, 'role', '')
-        period = request.GET.get('period', '24h')
-        
-        filters = {}
-        if role == 'ADMIN':
-            filters['admin_id'] = user.id
-            
-        now = timezone.now()
-        
-        if period == '7d':
-             start_time = now - timezone.timedelta(days=7)
-             trunc_class = TruncDay
-             date_format = '%Y-%m-%d'
-             iterations = 7
-             iter_delta = timezone.timedelta(days=1)
-        elif period == '30d':
-             start_time = now - timezone.timedelta(days=30)
-             trunc_class = TruncDay
-             date_format = '%Y-%m-%d'
-             iterations = 30
-             iter_delta = timezone.timedelta(days=1)
-        else: # 24h
-             start_time = now - timezone.timedelta(hours=24)
-             trunc_class = TruncHour
-             date_format = '%H:00'
-             iterations = 24
-             iter_delta = timezone.timedelta(hours=1)
-        
-        # Query Voters
-        stats = (
-            Voter.objects.filter(verified_at__gte=start_time, **filters)
-            .annotate(period_group=trunc_class('verified_at'))
-            .values('period_group')
-            .annotate(count=Count('id'))
-            .order_by('period_group')
-        )
-        
-        # Query Fraud Logs
-        fraud_filters = {}
-        if role == 'ADMIN':
-            fraud_filters['admin_id'] = user.id
-            
-        fraud_stats = (
-            FraudLog.objects.filter(flagged_at__gte=start_time, **fraud_filters)
-            .annotate(period_group=trunc_class('flagged_at'))
-            .values('period_group')
-            .annotate(count=Count('id'))
-            .order_by('period_group')
-        )
-
-        data_map = {}
-        for stat in stats:
-             if stat['period_group']:
-                 key = stat['period_group'].strftime(date_format)
-                 data_map[key] = stat['count']
-
-        fraud_map = {}
-        for stat in fraud_stats:
-             if stat['period_group']:
-                 key = stat['period_group'].strftime(date_format)
-                 fraud_map[key] = stat['count']
-
-        # Fill gaps
-        labels = []
-        data = []
-        fraud_data = []
-        
-        for i in range(iterations + 1):
-             ts = now - (iter_delta * (iterations - i))
-             key = ts.strftime(date_format)
-             labels.append(key)
-             data.append(data_map.get(key, 0))
-             fraud_data.append(fraud_map.get(key, 0))
-            
-        return Response({
-            'labels': labels,
-            'data': data,
-            'fraud_data': fraud_data
-        })
-    except Exception as e:
-        logger.error(f"Chart stats error: {e}")
-        return Response({'error': 'Failed to load chart data'}, status=500)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdmin])
-def booth_activity_heatmap(request):
-    """Get heatmap data: Booth vs Hour of Day (Last 24h)"""
-    try:
-        user = request.user
-        role = getattr(user, 'role', '')
-        
-        filters = {}
-        if role == 'ADMIN':
-            filters['admin_id'] = user.id
-            
-        # Default to last 24 hours for hourly heatmap
-        now = timezone.now()
-        start_time = now - timezone.timedelta(hours=24)
-        
-        # 1. Fetch Voters (verified in last 24h)
-        # We need operator_id to link to booth
-        voters = (
-            Voter.objects.filter(verified_at__gte=start_time, **filters)
-            .values('operator_id', 'verified_at')
-        )
-        
-        # 2. Get Operator -> Booth Mapping
-        operator_ids = set(v['operator_id'] for v in voters if v['operator_id'])
-        operators = Operator.objects.filter(id__in=operator_ids).values('id', 'booth_id')
-        op_to_booth = {str(op['id']): op['booth_id'] for op in operators}
-        
-        # 3. Aggregate Data in Python
-        # Map: (booth_id, hour_0_23) -> count
-        heatmap_counts = {}
-        all_booths = set()
-        
-        for v in voters:
-            op_id = str(v['operator_id']) if v['operator_id'] else None
-            booth_id = op_to_booth.get(op_id, 'Unknown')
-            
-            # Get Hour (0-23)
-            # verified_at is datetime
-            if v['verified_at']:
-                 # Ensure timezone awareness if needed, usually Django returns aware dt
-                 dt = v['verified_at'].astimezone(timezone.get_current_timezone())
-                 hour = dt.hour
-                 
-                 key = (booth_id, hour)
-                 heatmap_counts[key] = heatmap_counts.get(key, 0) + 1
-                 all_booths.add(booth_id)
-
-        # 4. Format for Frontend
-        data = []
-        for (booth, hour), count in heatmap_counts.items():
-            data.append({
-                'booth': booth,
-                'hour': hour,
-                'time_label': f"{hour:02d}:00",
-                'count': count
-            })
-            
-        # 5. Top Active Booths Filter
-        booth_totals = {}
-        for d in data:
-            bid = d['booth']
-            booth_totals[bid] = booth_totals.get(bid, 0) + d['count']
-            
-        # Sort top 8
-        top_booths = sorted(booth_totals.items(), key=lambda x: x[1], reverse=True)[:8]
-        top_booth_ids = [b[0] for b in top_booths]
-        
-        # Filter data
-        filtered_data = [d for d in data if d['booth'] in top_booth_ids]
-        
-        return Response({
-            'data': filtered_data,
-            'booths': top_booth_ids 
-        })
-    except Exception as e:
-        logger.error(f"Heatmap error: {e}")
-        return Response({'error': 'Failed to load heatmap'}, status=500)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdmin])
-def fraud_analytics(request):
-    """Get fraud analytics: Distribution by Type & 7-Day Trend"""
-    try:
-        user = request.user
-        role = getattr(user, 'role', '')
-        
-        filters = {}
-        if role == 'ADMIN':
-            filters['admin_id'] = user.id
-            
-        # 1. Distribution by Type
-        # Count frequency of each fraud_type
-        type_distribution = (
-            FraudLog.objects.filter(**filters)
-            .values('fraud_type')
-            .annotate(count=Count('id'))
-            .order_by('-count')
-        )
-        
-        # 2. 7-Day Trend
-        # Group by date
-        last_7_days = timezone.now() - timezone.timedelta(days=7)
-        trend_data = (
-            FraudLog.objects.filter(flagged_at__gte=last_7_days, **filters)
-            .annotate(date=TruncDay('flagged_at'))
-            .values('date')
-            .annotate(count=Count('id'))
-            .order_by('date')
-        )
-        
-        # Format Trend Data (Fill gaps)
-        trend_map = {entry['date'].strftime('%Y-%m-%d'): entry['count'] for entry in trend_data if entry['date']}
-        formatted_trend = []
-        
-        for i in range(7):
-            d = (timezone.now() - timezone.timedelta(days=6-i)).date() # today + prev 6 days
-            key = d.strftime('%Y-%m-%d')
-            formatted_trend.append({
-                'date': key,
-                'count': trend_map.get(key, 0)
-            })
-
-        return Response({
-            'distribution': type_distribution,
-            'trend': formatted_trend
-        })
-    except Exception as e:
-        logger.error(f"Fraud Analytics error: {e}")
-        return Response({'error': 'Failed to load analytics'}, status=500)

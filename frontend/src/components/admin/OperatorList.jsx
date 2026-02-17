@@ -1,14 +1,52 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../../api/axios';
-import { Plus, Search, RefreshCw, Eye, EyeOff, ShieldAlert, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Search, RefreshCw, Eye, EyeOff, ShieldAlert, Edit2, Trash2, X, CheckSquare, Square } from 'lucide-react';
 
 const OperatorList = () => {
     const [operators, setOperators] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
     const [currentOperator, setCurrentOperator] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Bulk Selection State
+    const [selectedIds, setSelectedIds] = useState(new Set());
+
+    const toggleSelect = (id) => {
+        const newSelected = new Set(selectedIds);
+        if (newSelected.has(id)) {
+            newSelected.delete(id);
+        } else {
+            newSelected.add(id);
+        }
+        setSelectedIds(newSelected);
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === sortedOperators.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(sortedOperators.map(op => op.id)));
+        }
+    };
+
+    const handleBulkAction = async (action) => {
+        if (!confirm(`Are you sure you want to ${action} ${selectedIds.size} operators?`)) return;
+
+        try {
+            await axios.post('/auth/admin/operators/bulk/', {
+                ids: Array.from(selectedIds),
+                action: action
+            });
+            fetchOperators();
+            setSelectedIds(new Set());
+        } catch (error) {
+            console.error("Bulk action failed", error);
+            alert("Failed to perform bulk action");
+        }
+    };
 
     // Sorting State
     const [sortConfig, setSortConfig] = useState({ key: 'verifications', direction: 'desc' });
@@ -120,6 +158,40 @@ const OperatorList = () => {
                 </div>
             </div>
 
+            {/* Bulk Action Toolbar */}
+            {selectedIds.size > 0 && (
+                <div className="bg-janmat-blue text-white p-4 rounded-lg shadow-lg flex justify-between items-center animate-in slide-in-from-top-2 duration-300">
+                    <span className="font-bold">{selectedIds.size} Selected</span>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => handleBulkAction('activate')}
+                            className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                        >
+                            Activate
+                        </button>
+                        <button
+                            onClick={() => handleBulkAction('deactivate')}
+                            className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                        >
+                            Deactivate
+                        </button>
+                        <div className="w-px bg-white/30 mx-1"></div>
+                        <button
+                            onClick={() => handleBulkAction('delete')}
+                            className="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded text-sm font-medium transition-colors shadow-sm"
+                        >
+                            Delete
+                        </button>
+                        <button
+                            onClick={() => setSelectedIds(new Set())}
+                            className="text-white/70 hover:text-white px-2"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                 <div className="relative w-96">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
@@ -140,6 +212,7 @@ const OperatorList = () => {
                     )}
                 </div>
                 <div className="flex gap-2">
+
                     <button
                         onClick={fetchOperators}
                         className="p-2 text-slate-600 hover:bg-slate-100 rounded border border-slate-300 transition-colors dark:text-slate-300 dark:hover:bg-slate-700 dark:border-slate-600"
@@ -160,6 +233,15 @@ const OperatorList = () => {
                 <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
                     <thead className="bg-slate-50 dark:bg-slate-900">
                         <tr>
+                            <th className="px-6 py-3 w-10">
+                                <button onClick={toggleSelectAll} className="text-slate-400 hover:text-janmat-blue">
+                                    {sortedOperators.length > 0 && selectedIds.size === sortedOperators.length ? (
+                                        <CheckSquare className="w-5 h-5 text-janmat-blue" />
+                                    ) : (
+                                        <Square className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </th>
                             <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400 cursor-pointer hover:text-janmat-blue" onClick={() => handleSort('full_name')}>
                                 Operator Name <SortIcon column="full_name" />
                             </th>
@@ -181,7 +263,16 @@ const OperatorList = () => {
                             <tr><td colSpan="6" className="p-8 text-center text-slate-500 dark:text-slate-400">No operators found.</td></tr>
                         ) : (
                             sortedOperators.map((op) => (
-                                <tr key={op.id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                                <tr key={op.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700 ${selectedIds.has(op.id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <button onClick={() => toggleSelect(op.id)} className="text-slate-400 hover:text-janmat-blue">
+                                            {selectedIds.has(op.id) ? (
+                                                <CheckSquare className="w-5 h-5 text-janmat-blue" />
+                                            ) : (
+                                                <Square className="w-5 h-5" />
+                                            )}
+                                        </button>
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center">
                                             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-janmat-blue font-bold text-xs mr-3 dark:bg-blue-900 dark:text-blue-200">
@@ -243,6 +334,7 @@ const OperatorList = () => {
 
             {isAddModalOpen && <AddOperatorModal onClose={() => setIsAddModalOpen(false)} onSuccess={() => { setIsAddModalOpen(false); fetchOperators(); }} />}
             {isEditModalOpen && currentOperator && <EditOperatorModal operator={currentOperator} onClose={() => setIsEditModalOpen(false)} onSuccess={() => { setIsEditModalOpen(false); fetchOperators(); }} />}
+
         </div>
     );
 };

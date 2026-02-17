@@ -5,6 +5,8 @@ import axios from '../../api/axios';
 import {
     Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu, Bell, ChevronRight, PieChart, LineChart, Grid
 } from 'lucide-react';
+
+
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
     Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler, ArcElement
@@ -37,7 +39,6 @@ const AdminDashboard = () => {
     const [chartPeriod, setChartPeriod] = useState('24h');
     const [chartView, setChartView] = useState('line');
     const [chartStats, setChartStats] = useState({ labels: [], data: [], fraud_data: [] });
-    const [heatmapData, setHeatmapData] = useState({ data: [], booths: [] });
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
@@ -116,12 +117,8 @@ const AdminDashboard = () => {
         const fetchChart = async () => {
             if (activeTab !== 'dashboard') return;
             try {
-                const [chartRes, heatmapRes] = await Promise.all([
-                    axios.get(`/auth/admin/voter-stats-chart/?period=${chartPeriod}`),
-                    axios.get('/auth/admin/heatmap-data/')
-                ]);
+                const chartRes = await axios.get(`/auth/admin/voter-stats-chart/?period=${chartPeriod}`);
                 setChartStats(chartRes.data);
-                setHeatmapData(heatmapRes.data);
             } catch (err) {
                 console.error("Chart fetch error", err);
             }
@@ -129,23 +126,8 @@ const AdminDashboard = () => {
         fetchChart();
     }, [activeTab, chartPeriod, refreshTrigger]);
 
-    const handleExport = async () => {
-        try {
-            const response = await axios.get('/auth/admin/export-report/', {
-                responseType: 'blob',
-            });
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `admin_report_${new Date().toISOString()}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-        } catch (error) {
-            console.error("Export failed", error);
-            alert("Failed to export report");
-        }
-    };
+
+
 
     const chartData = {
         labels: chartStats.labels && chartStats.labels.length > 0 ? chartStats.labels : ['No Data'],
@@ -230,6 +212,26 @@ const AdminDashboard = () => {
         },
     };
 
+    const handleExport = async () => {
+        try {
+            const response = await axios.get('/auth/admin/export-report/', {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `admin_report_${new Date().toISOString()}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error("Export failed", error);
+            alert("Failed to export report");
+        }
+    };
+
+
+
     const renderContent = () => {
         switch (activeTab) {
             case 'operators':
@@ -278,6 +280,7 @@ const AdminDashboard = () => {
                                         progress={stats.total_operators ? ((stats.active_operators || 0) / stats.total_operators) * 100 : 0}
                                     />
                                 </div>
+
 
                                 {/* Graphs & Booths */}
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -361,97 +364,48 @@ const AdminDashboard = () => {
                                         </div>
                                     </div>
 
-                                    {/* Heatmap Section */}
-                                    <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
-                                        <div className="flex justify-between items-center mb-6">
-                                            <h3 className="font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                                                <Grid className="w-4 h-4" /> Booth Activity Heatmap (Last 24h)
-                                            </h3>
-                                        </div>
-                                        <div className="overflow-x-auto">
-                                            <div className="min-w-[600px]">
-                                                {/* Matrix Header (Hours) */}
-                                                <div className="flex mb-2">
-                                                    <div className="w-24 text-xs font-bold text-slate-500 dark:text-slate-400">Booth ID</div>
-                                                    {Array.from({ length: 24 }).map((_, i) => (
-                                                        <div key={i} className="flex-1 text-center text-[10px] text-slate-400">
-                                                            {i.toString().padStart(2, '0')}
-                                                        </div>
-                                                    ))}
-                                                </div>
-
-                                                {/* Matrix Rows */}
-                                                {heatmapData.booths && heatmapData.booths.length > 0 ? (
-                                                    heatmapData.booths.map(boothId => (
-                                                        <div key={boothId} className="flex mb-1 items-center">
-                                                            <div className="w-24 text-xs font-medium text-slate-600 truncate pr-2 dark:text-slate-300" title={boothId}>
-                                                                {boothId}
-                                                            </div>
-                                                            {Array.from({ length: 24 }).map((_, hour) => {
-                                                                const cell = heatmapData.data.find(d => d.booth === boothId && d.hour === hour);
-                                                                const count = cell ? cell.count : 0;
-                                                                // Color intensity logic
-                                                                let bgClass = 'bg-slate-100 dark:bg-slate-700';
-                                                                if (count > 0) bgClass = 'bg-indigo-100 dark:bg-indigo-900/30';
-                                                                if (count > 2) bgClass = 'bg-indigo-300 dark:bg-indigo-800/50';
-                                                                if (count > 5) bgClass = 'bg-indigo-500 dark:bg-indigo-600';
-                                                                if (count > 10) bgClass = 'bg-indigo-700 dark:bg-indigo-500';
-
-                                                                return (
-                                                                    <div key={hour} className="flex-1 h-8 mx-0.5 rounded-sm relative group cursor-default">
-                                                                        <div className={`w-full h-full rounded-sm ${bgClass} transition-colors`}></div>
-                                                                        {/* Tooltip */}
-                                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block z-10 w-max px-2 py-1 bg-slate-800 text-white text-xs rounded shadow-lg">
-                                                                            {hour}:00 - {count} Events
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    ))
-                                                ) : (
-                                                    <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
-                                                        No activity data available for heatmap.
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="mt-4 flex items-center justify-end gap-4 text-xs text-slate-500 dark:text-slate-400">
-                                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-slate-100 dark:bg-slate-700 rounded-sm"></div> 0</div>
-                                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-sm"></div> 1-2</div>
-                                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-indigo-300 dark:bg-indigo-800/50 rounded-sm"></div> 3-5</div>
-                                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-indigo-500 dark:bg-indigo-600 rounded-sm"></div> 6-10</div>
-                                            <div className="flex items-center gap-1"><div className="w-3 h-3 bg-indigo-700 dark:bg-indigo-500 rounded-sm"></div> 10+</div>
-                                        </div>
-                                    </div>
                                     {/* Booth Status System */}
-                                    <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+                                    <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm dark:bg-slate-800 dark:border-slate-700 flex flex-col h-full">
                                         <div className="flex justify-between items-center mb-4">
                                             <h3 className="font-bold text-slate-800 flex items-center gap-2 dark:text-white">
                                                 Booth Status
                                             </h3>
+                                            <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-full dark:bg-slate-700 dark:text-slate-300">
+                                                {boothStatuses.length} Live
+                                            </span>
                                         </div>
-                                        <div className="space-y-4">
+
+                                        <div className="flex-1 overflow-y-auto pr-1 space-y-3 custom-scrollbar">
                                             {boothStatuses.length === 0 ? (
-                                                <p className="text-sm text-slate-500 dark:text-slate-400">No active booths.</p>
+                                                <div className="flex flex-col items-center justify-center h-32 text-slate-400">
+                                                    <MapPin className="w-8 h-8 mb-2 opacity-20" />
+                                                    <p className="text-sm">No active booths.</p>
+                                                </div>
                                             ) : (
                                                 boothStatuses.map((op, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center pb-3 border-b border-slate-50 last:border-0 dark:border-slate-700">
-                                                        <div>
-                                                            <p className="font-bold text-slate-800 text-sm dark:text-slate-200">{op.booth_id || '??'}</p>
-                                                            <p className="text-xs text-slate-500 dark:text-slate-400">Operator: {op.full_name || op.name || 'Unknown'}</p>
+                                                    <div key={idx} className="group flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-janmat-blue/30 hover:bg-slate-50 transition-all dark:border-slate-700 dark:hover:border-janmat-light/30 dark:hover:bg-slate-700/50">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-2 h-2 rounded-full ${op.is_active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-slate-300 dark:bg-slate-600'}`}></div>
+                                                            <div>
+                                                                <p className="font-bold text-slate-800 text-sm dark:text-slate-200 group-hover:text-janmat-blue dark:group-hover:text-janmat-light transition-colors">
+                                                                    {op.booth_id || '??'}
+                                                                </p>
+                                                                <p className="text-[10px] text-slate-500 dark:text-slate-400 capitalize">
+                                                                    {op.full_name || op.name || 'Unknown'}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <span className={`px-2 py-1 text-[10px] font-bold rounded-full ${op.is_active ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'}`}>
-                                                            {op.is_active ? 'Active' : 'Offline'}
-                                                        </span>
+                                                        <div className={`text-[10px] font-bold px-2 py-0.5 rounded ${op.is_active ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'}`}>
+                                                            {op.is_active ? 'ONLINE' : 'OFFLINE'}
+                                                        </div>
                                                     </div>
                                                 ))
                                             )}
-
-                                            <button onClick={() => setActiveTab('operators')} className="w-full text-center text-xs font-bold text-janmat-blue hover:underline mt-2 dark:text-janmat-light">
-                                                View all booths
-                                            </button>
                                         </div>
+
+                                        <button onClick={() => setActiveTab('operators')} className="w-full text-center text-xs font-bold text-janmat-blue hover:text-janmat-hover mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 dark:text-janmat-light transition-colors">
+                                            View all booths
+                                        </button>
                                     </div>
                                 </div>
 
