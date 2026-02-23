@@ -7,7 +7,9 @@ urlpatterns = [
     # Authentication endpoints
     path('admin/login/', views.admin_login, name='admin_login'),
     path('operator/login/', views.operator_login, name='operator_login'),
+    path('operator/stats/', views.operator_stats, name='operator_stats'),
     path('operator/change-password/', views.change_password, name='change_password'),
+    path('setup-password/', views.setup_initial_password, name='setup_initial_password'),
     path('current-user/', views.current_user, name='current_user'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
@@ -17,6 +19,7 @@ urlpatterns = [
     path('admin/create-operator/', views.create_operator, name='create_operator'),
     path('admin/operators/', views.list_operators, name='list_operators'),
     path('admin/operators/<uuid:pk>/', views.manage_operator, name='manage_operator'),
+    path('admin/operators/<uuid:pk>/toggle/', views.toggle_operator_status, name='toggle_operator_status'),
     path('admin/operators/bulk/', views.bulk_operator_action, name='bulk_operator_action'),
     path('admin/stats/', views.admin_stats, name='admin_stats'),
     path('admin/fraud-logs/', fraud_views.fraud_logs, name='fraud_logs'),

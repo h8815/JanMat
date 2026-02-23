@@ -30,9 +30,19 @@ const Login = () => {
         try {
             const endpoint = role === 'ADMIN' ? '/auth/admin/login/' : '/auth/operator/login/';
 
-            await login(email, password, endpoint, role);
+            const result = await login(email, password, endpoint, role);
 
-            // Redirect based on role
+            if (result && result.requiresPasswordReset) {
+                // Redirect to the password setup page and pass the username via React Router state
+                navigate('/setup-password', {
+                    state: {
+                        username: result.username
+                    }
+                });
+                return;
+            }
+
+            // Redirect based on role if login fully succeeds
             if (role === 'ADMIN') {
                 navigate('/admin-dashboard');
             } else {
@@ -63,13 +73,13 @@ const Login = () => {
                             onError={(e) => { e.target.src = 'https://placehold.co/80x80?text=Emblem'; }}
                         />
                         <h1 className="mt-4 text-2xl font-semibold text-white">
-                            {role === 'ADMIN' ? 'Admin Portal' : 'Operator Portal'} — JanMat
+                            {role === 'ADMIN' ? 'Admin Portal' : 'JanMat — Booth Operator Login'}
                         </h1>
                         <p className="mt-2 text-slate-200 max-w-sm">
                             {role === 'ADMIN'
-                                ? 'Restricted access for Election Commission administrators.'
-                                : 'Restricted access for polling booth operators.'
-                            } All access is logged and audited.
+                                ? 'Restricted access for Election Commission administrators. All access is logged and audited.'
+                                : 'Authorized access only. All actions are logged.'
+                            }
                         </p>
                         <Link to="/" className="inline-block mt-6 text-sm text-white underline">
                             Back to Role Selection
@@ -81,7 +91,7 @@ const Login = () => {
                         <div className="bg-white rounded-lg p-8 card-shadow border border-slate-200 max-w-xl mx-auto">
                             <form onSubmit={handleSubmit} noValidate>
                                 <div className="mb-6">
-                                    <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email</label>
+                                    <label htmlFor="email" className="block text-sm font-medium text-slate-700">{role === 'OPERATOR' ? 'Operator ID / Email' : 'Email'}</label>
                                     <input
                                         id="email"
                                         type="email"
@@ -103,7 +113,7 @@ const Login = () => {
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
                                             className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue outline-none pr-10"
-                                            placeholder="••••••••"
+                                            placeholder="......."
                                         />
                                         <button
                                             type="button"

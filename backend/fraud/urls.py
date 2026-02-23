@@ -7,4 +7,7 @@ urlpatterns = [
     path('logs/<uuid:log_id>/', views.fraud_log_detail, name='fraud_log_detail'),
     path('stats/', views.fraud_stats, name='fraud_stats'),
     path('notifications/unread-count/', views.unread_fraud_count, name='unread_fraud_count'),
+    
+    # Operator fraud reporting
+    path('report/', views.operator_report_fraud, name='operator_report_fraud'),
 ]

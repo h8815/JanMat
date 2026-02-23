@@ -46,7 +46,14 @@ export const AuthProvider = ({ children }) => {
 
     const login = async (email, password, endpoint, expectedRole) => {
         try {
-            const response = await api.post(endpoint, { email, password });
+            // Send email as username since backend serializers now expect 'username' for both Admin and Operator
+            const response = await api.post(endpoint, { username: email, password });
+
+            // Catch the forced password change scenario
+            if (response.data.must_change_password) {
+                return { requiresPasswordReset: true, username: email };
+            }
+
             const { access, refresh, user: userData } = response.data;
 
             const decoded = jwtDecode(access);
@@ -76,10 +83,15 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        const role = user?.role;
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         setUser(null);
-        window.location.href = '/login';
+        if (role === 'OPERATOR') {
+            window.location.href = '/login?role=operator';
+        } else {
+            window.location.href = '/login?role=admin';
+        }
     };
 
     return (

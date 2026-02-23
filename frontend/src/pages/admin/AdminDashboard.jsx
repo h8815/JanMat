@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import {
-    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu, Bell, ChevronRight, PieChart, LineChart, Grid
+    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu, Bell, ChevronRight, ChevronDown, Check, PieChart, LineChart, Grid
 } from 'lucide-react';
 
 
@@ -22,11 +22,17 @@ import AuditLogTable from '../../components/admin/AuditLogTable';
 import Sidebar from '../../components/admin/Sidebar';
 import { Toaster } from 'react-hot-toast';
 import { useNotifications } from '../../context/NotificationContext';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
+import Breadcrumbs from '../../components/common/Breadcrumbs';
+import SkeletonLoader from '../../components/common/SkeletonLoader';
+import CustomDatePicker from '../../components/common/CustomDatePicker';
 
 const AdminDashboard = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useTranslation();
 
     // Get notifications
     const { unreadCount, markAllAsRead } = useNotifications() || { unreadCount: 0, markAllAsRead: () => { } }; // Fallback if context missing (shouldn't happen)
@@ -42,6 +48,34 @@ const AdminDashboard = () => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const [notificationDropdownOpen, setNotificationDropdownOpen] = useState(false);
+    const [unreadFraudLogs, setUnreadFraudLogs] = useState([]);
+    const notificationRef = useRef(null);
+
+    // Close notification dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (notificationRef.current && !notificationRef.current.contains(e.target)) {
+                setNotificationDropdownOpen(false);
+            }
+        };
+        if (notificationDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [notificationDropdownOpen]);
+
+    // Fetch actual unread logs when dropdown is opened
+    useEffect(() => {
+        if (!notificationDropdownOpen) return;
+        const fetchUnread = async () => {
+            try {
+                const res = await axios.get('/auth/admin/fraud-logs/?status=pending&limit=10');
+                const list = Array.isArray(res.data) ? res.data : (res.data.logs || []);
+                setUnreadFraudLogs(list.filter(l => !l.reviewed));
+            } catch { /* silent */ }
+        };
+        fetchUnread();
+    }, [notificationDropdownOpen]);
 
     // Sync state with URL changes (e.g. browser back button)
     useEffect(() => {
@@ -90,6 +124,20 @@ const AdminDashboard = () => {
         const fetchData = async () => {
             try {
                 if (activeTab === 'dashboard') {
+                    // SWR: Load from cache first
+                    const cachedData = sessionStorage.getItem('adminDashboardData');
+                    if (cachedData && loading) {
+                        try {
+                            const parsed = JSON.parse(cachedData);
+                            setStats(parsed.stats);
+                            setRecentFraudLogs(parsed.recentFraudLogs);
+                            setBoothStatuses(parsed.boothStatuses);
+                            setLoading(false);
+                        } catch (e) {
+                            console.error("Cache parse error", e);
+                        }
+                    }
+
                     const [statsRes, fraudRes, opsRes] = await Promise.all([
                         axios.get('/auth/admin/stats/'),
                         axios.get('/auth/admin/fraud-logs/'), // recent logs
@@ -99,8 +147,17 @@ const AdminDashboard = () => {
                     setStats(statsRes.data);
                     // Handle paginated response (obj.logs) or flat list (array)
                     const fraudList = Array.isArray(fraudRes.data) ? fraudRes.data : (fraudRes.data.logs || []);
-                    setRecentFraudLogs(fraudList.slice(0, 5));
-                    setBoothStatuses(opsRes.data.slice(0, 4));
+                    const slicedFraud = fraudList.slice(0, 5);
+                    const slicedOps = opsRes.data.slice(0, 4);
+
+                    setRecentFraudLogs(slicedFraud);
+                    setBoothStatuses(slicedOps);
+
+                    sessionStorage.setItem('adminDashboardData', JSON.stringify({
+                        stats: statsRes.data,
+                        recentFraudLogs: slicedFraud,
+                        boothStatuses: slicedOps
+                    }));
                 }
             } catch (error) {
                 console.error("Failed to fetch dashboard data", error);
@@ -212,21 +269,51 @@ const AdminDashboard = () => {
         },
     };
 
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [showReportDropdown, setShowReportDropdown] = useState(false);
+    const [exportConfig, setExportConfig] = useState({
+        startDate: '',
+        endDate: '',
+        reportType: 'full',
+    });
+    const [exporting, setExporting] = useState(false);
+
+    const reportOptions = [
+        { value: 'full', label: 'Full Report (Verifications + Fraud + Audit)' },
+        { value: 'fraud', label: 'Fraud Incidents Only' },
+        { value: 'audit', label: 'Audit Logs Only' },
+        { value: 'operators', label: 'Operator Summary Only' },
+        { value: 'verifications', label: 'Verifications Only' }
+    ];
+
     const handleExport = async () => {
+        setExporting(true);
         try {
-            const response = await axios.get('/auth/admin/export-report/', {
+            const params = new URLSearchParams();
+            if (exportConfig.startDate) params.append('start_date', exportConfig.startDate);
+            if (exportConfig.endDate) params.append('end_date', exportConfig.endDate);
+            if (exportConfig.reportType !== 'full') params.append('report_type', exportConfig.reportType);
+            params.append('limit', '10000'); // Export all records
+
+            const response = await axios.get(`/auth/admin/export-report/?${params.toString()}`, {
                 responseType: 'blob',
             });
             const url = window.URL.createObjectURL(new Blob([response.data]));
             const link = document.createElement('a');
             link.href = url;
-            link.setAttribute('download', `admin_report_${new Date().toISOString()}.pdf`);
+            const dateStr = exportConfig.startDate && exportConfig.endDate
+                ? `${exportConfig.startDate}_to_${exportConfig.endDate}`
+                : new Date().toISOString().split('T')[0];
+            link.setAttribute('download', `janmat_report_${exportConfig.reportType}_${dateStr}.pdf`);
             document.body.appendChild(link);
             link.click();
             link.remove();
+            setShowExportModal(false);
         } catch (error) {
-            console.error("Export failed", error);
-            alert("Failed to export report");
+            console.error('Export failed', error);
+            alert('Failed to export report. Please try again.');
+        } finally {
+            setExporting(false);
         }
     };
 
@@ -246,14 +333,18 @@ const AdminDashboard = () => {
             default:
                 return (
                     <div className="space-y-6">
-                        {loading ? <p>Loading stats...</p> : (
+                        {loading ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                                <SkeletonLoader type="stat" count={4} />
+                            </div>
+                        ) : (
                             <>
                                 {/* Stats Row */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <StatCard label="Total Verified Today" value={stats.verifications_today} icon={<Activity className="w-5 h-5" />} trend="All Time" color="blue" />
+                                    <StatCard label={t('stats_total_verifications')} value={stats.verifications_today} icon={<Activity className="w-5 h-5" />} trend="All Time" color="blue" />
 
                                     <StatCard
-                                        label="Verified Voters"
+                                        label={t('stats_total_verifications')}
                                         value={stats.verified_voters}
                                         icon={<Home className="w-5 h-5" />}
                                         subtext="of Total Voters"
@@ -262,7 +353,7 @@ const AdminDashboard = () => {
                                     />
 
                                     <StatCard
-                                        label="Fraud Alerts"
+                                        label={t('stats_fraud_alerts')}
                                         value={stats.total_fraud_alerts}
                                         icon={<AlertOctagon className="w-5 h-5" />}
                                         subtext="Requires Review"
@@ -271,10 +362,10 @@ const AdminDashboard = () => {
                                     />
 
                                     <StatCard
-                                        label="Operators"
+                                        label={t('nav_operators')}
                                         value={stats.total_operators}
                                         icon={<Users className="w-5 h-5" />}
-                                        subtext={`${stats.active_operators || 0} Active`}
+                                        subtext={`${stats.active_operators || 0} ${t('status_active')}`}
                                         color="slate"
                                         onClick={() => setActiveTab('operators')}
                                         progress={stats.total_operators ? ((stats.active_operators || 0) / stats.total_operators) * 100 : 0}
@@ -412,9 +503,9 @@ const AdminDashboard = () => {
                                 {/* Recent Fraud Logs */}
                                 <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden p-6 dark:bg-slate-800 dark:border-slate-700">
                                     <div className="flex justify-between items-center mb-4">
-                                        <h3 className="font-bold text-slate-800 text-lg dark:text-white">Recent Fraud Logs</h3>
+                                        <h3 className="font-bold text-slate-800 text-lg dark:text-white">{t('recent_fraud_alerts')}</h3>
                                         <div className="flex gap-2">
-                                            <button onClick={() => setActiveTab('fraud')} className="px-3 py-1 bg-janmat-blue text-white rounded text-xs font-bold hover:bg-janmat-hover">View all fraud logs</button>
+                                            <button onClick={() => setActiveTab('fraud')} className="px-3 py-1 bg-janmat-blue text-white rounded text-xs font-bold hover:bg-janmat-hover">{t('view_all_alerts')}</button>
                                         </div>
                                     </div>
 
@@ -498,7 +589,7 @@ const AdminDashboard = () => {
 
                         <div>
                             <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                                {t('nav_' + activeTab) || (activeTab.charAt(0).toUpperCase() + activeTab.slice(1))}
                                 {activeTab === 'dashboard' && (
                                     <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wider border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
                                         <span className="relative flex h-2 w-2">
@@ -515,7 +606,7 @@ const AdminDashboard = () => {
 
                     <div className="flex gap-4 items-center">
                         {/* Bell Icon for Notifications */}
-                        <div className="relative">
+                        <div className="relative" ref={notificationRef}>
                             <div
                                 className="relative cursor-pointer hover:bg-slate-50 p-2 rounded-full transition-colors"
                                 onClick={() => setNotificationDropdownOpen(!notificationDropdownOpen)}
@@ -545,15 +636,15 @@ const AdminDashboard = () => {
                                         )}
                                     </div>
                                     <div className="max-h-64 overflow-y-auto dark:bg-slate-800">
-                                        {recentFraudLogs.filter(l => !l.reviewed).length === 0 ? (
-                                            <p className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">No new alerts.</p>
+                                        {unreadFraudLogs.length === 0 ? (
+                                            <p className="p-4 text-center text-xs text-slate-500 dark:text-slate-400">No new alerts. All caught up! ✅</p>
                                         ) : (
-                                            recentFraudLogs.filter(l => !l.reviewed).slice(0, 5).map((log, i) => (
+                                            unreadFraudLogs.slice(0, 8).map((log, i) => (
                                                 <div key={i} className="p-3 border-b border-slate-50 hover:bg-slate-50 cursor-pointer dark:border-slate-700 dark:hover:bg-slate-700" onClick={() => { setActiveTab('fraud'); setNotificationDropdownOpen(false); }}>
-                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{log.fraud_type}</p>
+                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 capitalize">{log.fraud_type?.replace(/_/g, ' ')}</p>
                                                     <p className="text-[10px] text-slate-500 mt-1 flex justify-between dark:text-slate-400">
                                                         <span>Booth: {log.booth_number}</span>
-                                                        <span>{new Date(log.flagged_at).toLocaleTimeString()}</span>
+                                                        <span>{new Date(log.flagged_at).toLocaleString()}</span>
                                                     </p>
                                                 </div>
                                             ))
@@ -571,7 +662,9 @@ const AdminDashboard = () => {
                             )}
                         </div>
 
-                        <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 md:px-4 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:hover:bg-slate-600">
+                        <LanguageSwitcher />
+
+                        <button onClick={() => setShowExportModal(true)} className="flex items-center gap-2 px-3 py-2 md:px-4 bg-white border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 transition-colors dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:hover:bg-slate-600">
                             <Download className="w-4 h-4 text-slate-500 dark:text-slate-300" />
                             <span className="hidden sm:inline">Export Report</span>
                         </button>
@@ -580,9 +673,104 @@ const AdminDashboard = () => {
 
                 {/* Main Scrollable Area */}
                 <main className="flex-1 overflow-y-auto p-4 md:p-8">
+                    <Breadcrumbs />
                     {renderContent()}
                 </main>
             </div>
+
+            {/* Export Report Modal */}
+            {showExportModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && setShowExportModal(false)}>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl w-full max-w-md border border-slate-200 dark:border-slate-700">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-5 border-b border-slate-100 dark:border-slate-700">
+                            <div>
+                                <h3 className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                    <Download className="w-4 h-4 text-janmat-blue" /> Export Report
+                                </h3>
+                                <p className="text-xs text-slate-500 mt-0.5 dark:text-slate-400">Customize your export options</p>
+                            </div>
+                            <button onClick={() => setShowExportModal(false)} className="p-1 text-slate-400 hover:text-slate-600 rounded dark:hover:text-slate-200">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-5 space-y-4">
+                            {/* Date Range */}
+                            <div className="mb-4">
+                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Date Range</label>
+                                <div className="grid grid-cols-2 gap-3 relative z-50">
+                                    <CustomDatePicker
+                                        label="From"
+                                        value={exportConfig.startDate}
+                                        onChange={(date) => setExportConfig(c => ({ ...c, startDate: date }))}
+                                        placeholder="Start date"
+                                    />
+                                    <CustomDatePicker
+                                        label="To"
+                                        value={exportConfig.endDate}
+                                        minDate={exportConfig.startDate}
+                                        onChange={(date) => setExportConfig(c => ({ ...c, endDate: date }))}
+                                        placeholder="End date"
+                                    />
+                                </div>
+                                <p className="text-[10px] text-slate-400 mt-2">Leave blank to export all records</p>
+                            </div>
+
+                            {/* Report Type */}
+                            <div className="relative z-40">
+                                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2 uppercase tracking-wide">Report Type</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowReportDropdown(!showReportDropdown)}
+                                    className="w-full flex items-center justify-between px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-janmat-blue outline-none transition-colors hover:bg-slate-100 dark:bg-slate-700 dark:border-slate-600 dark:text-white dark:hover:bg-slate-600"
+                                >
+                                    <span className="font-medium">{reportOptions.find(o => o.value === exportConfig.reportType)?.label}</span>
+                                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showReportDropdown ? 'rotate-180 text-janmat-blue' : ''}`} />
+                                </button>
+
+                                {showReportDropdown && (
+                                    <>
+                                        <div className="fixed inset-0 z-40" onClick={() => setShowReportDropdown(false)}></div>
+                                        <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-100 rounded-xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.1)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 dark:bg-slate-800 dark:border-slate-700 dark:shadow-slate-900/50">
+                                            {reportOptions.map(opt => (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() => { setExportConfig(c => ({ ...c, reportType: opt.value })); setShowReportDropdown(false); }}
+                                                    className={`w-full flex items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/50 ${exportConfig.reportType === opt.value ? 'bg-blue-50/50 text-janmat-blue dark:bg-janmat-blue/10 dark:text-janmat-light' : 'text-slate-700 dark:text-slate-200'}`}
+                                                >
+                                                    <span className={`${exportConfig.reportType === opt.value ? 'font-bold' : 'font-medium'}`}>{opt.label}</span>
+                                                    {exportConfig.reportType === opt.value && <Check className="w-4 h-4 text-janmat-blue dark:text-janmat-light" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-5 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3">
+                            <button onClick={() => setShowExportModal(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition-colors dark:text-slate-400 dark:hover:bg-slate-700">
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleExport}
+                                disabled={exporting}
+                                className="px-5 py-2 bg-janmat-blue text-white rounded-lg text-sm font-bold hover:bg-janmat-hover transition-colors flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {exporting ? (
+                                    <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Generating...</>
+                                ) : (
+                                    <><Download className="w-4 h-4" /> Download PDF</>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../../api/axios';
-import { RefreshCw, AlertTriangle, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, X, BarChart2, TrendingUp, Download } from 'lucide-react';
+import { RefreshCw, AlertTriangle, CheckCircle, Clock, Search, Filter, ChevronLeft, ChevronRight, X, BarChart2, TrendingUp, Download, ArrowLeftRight } from 'lucide-react';
 import { Bar, Line } from 'react-chartjs-2';
 import {
     Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend
 } from 'chart.js';
+import { useTranslation } from 'react-i18next';
+import SkeletonLoader from '../common/SkeletonLoader';
+import EmptyState from '../common/EmptyState';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Title, Tooltip, Legend);
 
 const FraudLogTable = () => {
+    const { t } = useTranslation();
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedLog, setSelectedLog] = useState(null);
@@ -109,14 +113,33 @@ const FraudLogTable = () => {
 
     const voter = getVoterData();
 
+    // Map DB fraud_type values to human-readable i18n labels
+    const fraudTypeLabels = {
+        'duplicate_biometric': t('filter_duplicate'),
+        'multiple_otp_attempts': t('filter_multiple_otp'),
+        'already_voted': t('filter_already_voted'),
+        'invalid_session': t('filter_invalid_session'),
+        'suspicious_activity': t('filter_suspicious'),
+        'impersonation': t('fraud_type_impersonation'),
+        'unauthorized_access': t('fraud_type_unauthorized'),
+        'technical_issue': t('fraud_type_technical'),
+        'other': t('fraud_type_other'),
+    };
+
+    const formatFraudType = (rawType) => {
+        if (!rawType) return 'Unknown';
+        return fraudTypeLabels[rawType]
+            || rawType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
                     <h3 className="font-bold text-slate-800 text-lg dark:text-white flex items-center gap-2">
-                        Security Incidents & Fraud Attempts
+                        {t('fraud_incidents_title')}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">Monitor and review flagged polling activities</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t('fraud_incidents_desc')}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2 w-full md:w-auto items-center">
@@ -125,7 +148,7 @@ const FraudLogTable = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
-                            placeholder="Search Aadhaar..."
+                            placeholder={t('search_aadhaar_placeholder')}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="pl-9 pr-4 py-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue outline-none w-full md:w-48 dark:bg-slate-700 dark:border-slate-600 dark:text-white"
@@ -145,12 +168,12 @@ const FraudLogTable = () => {
                         value={filters.type}
                         onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value, page: 1 }))}
                     >
-                        <option value="">All Fraud Types</option>
-                        <option value="duplicate_biometric">Duplicate Biometric</option>
-                        <option value="multiple_otp_attempts">Multiple OTPs</option>
-                        <option value="already_voted">Already Voted</option>
-                        <option value="invalid_session">Invalid Session</option>
-                        <option value="suspicious_activity">Suspicious Activity</option>
+                        <option value="">{t('filter_all_types')}</option>
+                        <option value="duplicate_biometric">{t('filter_duplicate')}</option>
+                        <option value="multiple_otp_attempts">{t('filter_multiple_otp')}</option>
+                        <option value="already_voted">{t('filter_already_voted')}</option>
+                        <option value="invalid_session">{t('filter_invalid_session')}</option>
+                        <option value="suspicious_activity">{t('filter_suspicious')}</option>
                     </select>
 
                     <select
@@ -158,9 +181,9 @@ const FraudLogTable = () => {
                         value={filters.status}
                         onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value, page: 1 }))}
                     >
-                        <option value="">All Status</option>
-                        <option value="pending">Pending Review</option>
-                        <option value="reviewed">Reviewed</option>
+                        <option value="">{t('filter_all_status')}</option>
+                        <option value="pending">{t('filter_pending')}</option>
+                        <option value="reviewed">{t('filter_reviewed')}</option>
                     </select>
 
                     <button
@@ -173,28 +196,41 @@ const FraudLogTable = () => {
                 </div>
             </div>
 
+            <div className="md:hidden text-xs text-slate-500 mb-2 flex items-center gap-1 dark:text-slate-400 mt-2">
+                <ArrowLeftRight className="w-3 h-3" /> {t('swipe_to_scroll') || 'Swipe horizontally to view all columns'}
+            </div>
+
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[500px] dark:bg-slate-800 dark:border-slate-700">
-                <div className="flex-grow overflow-auto">
+                <div className="flex-grow overflow-auto touch-pan-x snap-x">
                     <table className="min-w-full divide-y divide-slate-200 relative dark:divide-slate-700">
                         <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm dark:bg-slate-900">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Timestamp</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Voter/Aadhaar</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Booth ID</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Issue Type</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">{t('col_timestamp')}</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">{t('col_voter_aadhaar')}</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">{t('col_booth')}</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">{t('col_issue_type')}</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">{t('col_status')}</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-slate-200 dark:bg-slate-800 dark:divide-slate-700">
                             {loading ? (
-                                <tr><td colSpan="5" className="p-8 text-center text-slate-500 dark:text-slate-400">Loading logs...</td></tr>
+                                Array(5).fill(0).map((_, i) => (
+                                    <tr key={i}>
+                                        <td colSpan="5" className="px-6 py-4">
+                                            <SkeletonLoader type="table-row" />
+                                        </td>
+                                    </tr>
+                                ))
                             ) : logs.length === 0 ? (
-                                <tr><td colSpan="5" className="p-8 text-center text-slate-500 dark:text-slate-400">
-                                    <div className="flex flex-col items-center gap-2">
-                                        <CheckCircle className="w-8 h-8 text-green-500 opacity-50" />
-                                        <p>No records found matching your criteria.</p>
-                                    </div>
-                                </td></tr>
+                                <tr>
+                                    <td colSpan="5" className="p-8">
+                                        <EmptyState
+                                            icon={AlertTriangle}
+                                            title={t('no_records_title') || 'No Fraud Alerts'}
+                                            message={t('no_records_desc') || 'All clear! No fraud alerts match the selected criteria.'}
+                                        />
+                                    </td>
+                                </tr>
                             ) : (
                                 logs.map((log) => (
                                     <tr
@@ -216,7 +252,7 @@ const FraudLogTable = () => {
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-bold border border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-900">
-                                                {log.fraud_type}
+                                                {formatFraudType(log.fraud_type)}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -269,7 +305,7 @@ const FraudLogTable = () => {
                         <div className="flex justify-between items-center bg-slate-100 px-6 py-4 border-b dark:bg-slate-900 dark:border-slate-700">
                             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
                                 <AlertTriangle className="text-red-600" />
-                                Fraud Incident Details
+                                {t('modal_fraud_details')}
                             </h2>
                             <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                                 <span className="text-2xl">&times;</span>
@@ -294,7 +330,7 @@ const FraudLogTable = () => {
                                     {/* Photo */}
                                     <div className="w-24 h-32 bg-slate-200 rounded border border-slate-300 flex items-center justify-center overflow-hidden flex-shrink-0">
                                         {voter.photo ? (
-                                            <img src={voter.photo} alt="Voter" className="w-full h-full object-cover" />
+                                            <img src={voter.photo} alt="Voter" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                         ) : (
                                             <div className="text-slate-400 text-center text-xs">
                                                 <div className="w-12 h-12 mx-auto mb-1 bg-slate-300 rounded-full" />
@@ -345,7 +381,7 @@ const FraudLogTable = () => {
                                 onClick={() => setModalOpen(false)}
                                 className="px-6 py-2 bg-slate-800 text-white font-bold rounded shadow hover:bg-slate-700 transition-colors dark:bg-slate-700 dark:hover:bg-slate-600"
                             >
-                                Acknowledge & Close
+                                {t('btn_acknowledge')}
                             </button>
                         </div>
                     </div>

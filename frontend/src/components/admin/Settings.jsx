@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../api/axios';
-import { Lock, Save, User, Edit2, X, AlertCircle, CheckCircle, Moon, Sun } from 'lucide-react';
+import { Lock, Save, User, Edit2, X, AlertCircle, CheckCircle, Moon, Sun, Shield, Clock, Smartphone, Monitor } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 const Settings = ({ user }) => {
+    const { t } = useTranslation();
     const { theme, toggleTheme } = useTheme();
     // Password State
     const [passwordData, setPasswordData] = useState({
@@ -21,6 +23,36 @@ const Settings = ({ user }) => {
 
     const [message, setMessage] = useState({ type: '', text: '' });
     const [loading, setLoading] = useState(false);
+
+    // Security Features State
+    const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+
+    // Mock Login Activity Data
+    const loginHistory = [
+        { id: 1, device: "Chrome on Windows", ip: "192.168.1.45", location: "New Delhi, India", time: "2 mins ago", current: true, type: 'desktop' },
+        { id: 2, device: "Safari on iPhone", ip: "103.44.2.19", location: "Mumbai, India", time: "2 days ago", current: false, type: 'mobile' },
+        { id: 3, device: "Chrome on macOS", ip: "45.112.55.1", location: "New Delhi, India", time: "1 week ago", current: false, type: 'desktop' }
+    ];
+
+    const checkPasswordStrength = (pwd) => {
+        let score = 0;
+        if (!pwd) return 0;
+        if (pwd.length >= 8) score += 1;
+        if (pwd.match(/[A-Z]/)) score += 1;
+        if (pwd.match(/[0-9]/)) score += 1;
+        if (pwd.match(/[^A-Za-z0-9]/)) score += 1;
+        return score; // 0 to 4
+    };
+
+    const getStrengthColor = (score) => {
+        if (score === 0) return 'bg-slate-200 dark:bg-slate-600';
+        if (score === 1) return 'bg-red-500';
+        if (score === 2) return 'bg-yellow-500';
+        if (score === 3) return 'bg-blue-500';
+        if (score === 4) return 'bg-green-500';
+    };
+
+    const passwordScore = checkPasswordStrength(passwordData.new_password);
 
     // Sync init data
     useEffect(() => {
@@ -124,21 +156,21 @@ const Settings = ({ user }) => {
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 relative dark:bg-slate-800 dark:border-slate-700">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                        <User className="w-5 h-5 text-janmat-blue dark:text-janmat-light" /> Admin Profile
+                        <User className="w-5 h-5 text-janmat-blue dark:text-janmat-light" /> {t('profile_title')}
                     </h3>
                     {!isEditing ? (
                         <button
                             onClick={() => setIsEditing(true)}
                             className="flex items-center gap-1 text-sm text-slate-500 hover:text-janmat-blue transition-colors dark:text-slate-400 dark:hover:text-janmat-light"
                         >
-                            <Edit2 className="w-4 h-4" /> Edit Profile
+                            <Edit2 className="w-4 h-4" /> {t('btn_edit_profile')}
                         </button>
                     ) : (
                         <button
                             onClick={() => setIsEditing(false)}
                             className="flex items-center gap-1 text-sm text-slate-500 hover:text-red-600 transition-colors dark:text-slate-400 dark:hover:text-red-400"
                         >
-                            <X className="w-4 h-4" /> Cancel
+                            <X className="w-4 h-4" /> {t('cancel')}
                         </button>
                     )}
                 </div>
@@ -147,7 +179,7 @@ const Settings = ({ user }) => {
                     <form onSubmit={handleProfileSubmit} className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Name</label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">{t('label_name')}</label>
                                 <input
                                     type="text"
                                     name="name"
@@ -157,7 +189,9 @@ const Settings = ({ user }) => {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Email <span className="text-xs text-slate-400">(Unique)</span></label>
+                                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">
+                                    {t('label_email_unique')}
+                                </label>
                                 <input
                                     type="email"
                                     name="email"
@@ -173,32 +207,32 @@ const Settings = ({ user }) => {
                                 disabled={loading}
                                 className="px-6 py-2 bg-janmat-blue text-white font-bold rounded hover:bg-janmat-hover disabled:opacity-50 transition-colors flex items-center gap-2"
                             >
-                                <Save className="w-4 h-4" /> Save Changes
+                                <Save className="w-4 h-4" /> {t('save')}
                             </button>
                         </div>
                     </form>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Name</label>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_name')}</label>
                             <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-slate-700 font-bold dark:bg-slate-700 dark:border-slate-600 dark:text-white">
                                 {profileData.name || 'Admin'}
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Email Address</label>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_email')}</label>
                             <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-slate-700 font-mono dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300">
                                 {profileData.email}
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Admin ID</label>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_admin_id')}</label>
                             <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-slate-500 font-mono text-xs dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400">
                                 {user?.id || 'N/A'}
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Role</label>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_role')}</label>
                             <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-janmat-blue font-bold tracking-wider dark:bg-slate-700 dark:border-slate-600 dark:text-janmat-light">
                                 {user?.role || 'ADMIN'}
                             </div>
@@ -210,12 +244,12 @@ const Settings = ({ user }) => {
             {/* Password Change */}
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 dark:bg-slate-800 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 dark:text-white">
-                    <Lock className="w-5 h-5 text-janmat-blue dark:text-janmat-light" /> Change Password
+                    <Lock className="w-5 h-5 text-janmat-blue dark:text-janmat-light" /> {t('change_password_title')}
                 </h3>
 
                 <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Current Password</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">{t('label_current_password')}</label>
                         <input
                             type="password"
                             name="old_password"
@@ -226,7 +260,7 @@ const Settings = ({ user }) => {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">New Password</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">{t('label_new_password')}</label>
                         <input
                             type="password"
                             name="new_password"
@@ -235,9 +269,21 @@ const Settings = ({ user }) => {
                             className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue focus:border-transparent outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                             required
                         />
+                        {passwordData.new_password && (
+                            <div className="mt-2 text-xs flex items-center gap-2 animate-in fade-in duration-200">
+                                <div className="flex gap-1 h-1.5 flex-1 max-w-[150px]">
+                                    {[1, 2, 3, 4].map(num => (
+                                        <div key={num} className={`h-full flex-1 rounded-sm transition-colors ${passwordScore >= num ? getStrengthColor(passwordScore) : 'bg-slate-200 dark:bg-slate-700'}`}></div>
+                                    ))}
+                                </div>
+                                <span className={`font-medium ${getStrengthColor(passwordScore).replace('bg-', 'text-')}`}>
+                                    {[t('pwd_strength_weak'), t('pwd_strength_fair'), t('pwd_strength_good'), t('pwd_strength_strong')][passwordScore - 1] || t('pwd_strength_weak')}
+                                </span>
+                            </div>
+                        )}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Confirm New Password</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">{t('label_confirm_password')}</label>
                         <input
                             type="password"
                             name="confirm_password"
@@ -252,10 +298,10 @@ const Settings = ({ user }) => {
                         disabled={loading}
                         className="flex items-center gap-2 px-6 py-2 bg-slate-800 text-white font-bold rounded hover:bg-slate-700 disabled:opacity-50 transition-colors dark:bg-slate-600 dark:hover:bg-slate-500"
                     >
-                        <Save className="w-4 h-4" /> Update Password
+                        <Save className="w-4 h-4" /> {t('btn_update_password')}
                     </button>
                     <p className="text-xs text-slate-500 mt-2 dark:text-slate-400">
-                        Note: For security, major account changes require SuperAdmin intervention.
+                        {t('password_note')}
                     </p>
                 </form>
             </div>
@@ -264,12 +310,12 @@ const Settings = ({ user }) => {
             <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 dark:bg-slate-800 dark:border-slate-700">
                 <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 dark:text-white">
                     {theme === 'dark' ? <Moon className="w-5 h-5 text-janmat-blue dark:text-janmat-light" /> : <Sun className="w-5 h-5 text-janmat-blue" />}
-                    Appearance
+                    {t('appearance_title')}
                 </h3>
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="font-medium text-slate-800 dark:text-white">Dark Mode</p>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Switch between light and dark themes.</p>
+                        <p className="font-medium text-slate-800 dark:text-white">{t('dark_mode')}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">{t('dark_mode_desc')}</p>
                     </div>
                     <button
                         onClick={toggleTheme}
@@ -279,6 +325,39 @@ const Settings = ({ user }) => {
                             className={`${theme === 'dark' ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
                         />
                     </button>
+                </div>
+            </div>
+
+            {/* Login Activity */}
+            <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 dark:bg-slate-800 dark:border-slate-700">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 dark:text-white">
+                    <Clock className="w-5 h-5 text-janmat-blue dark:text-janmat-light" /> {t('login_activity_title') || 'Login Activity'}
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                    {t('login_activity_desc') || 'Recent devices that have accessed your account. If you see an unfamiliar device, change your password.'}
+                </p>
+                <div className="divide-y divide-slate-200 dark:divide-slate-700 pt-2">
+                    {loginHistory.map((log) => (
+                        <div key={log.id} className="py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+                            <div className="h-10 w-10 shrink-0 bg-slate-100 rounded-lg flex items-center justify-center dark:bg-slate-700">
+                                {log.type === 'desktop' ? <Monitor className="w-5 h-5 text-slate-500 dark:text-slate-400" /> : <Smartphone className="w-5 h-5 text-slate-500 dark:text-slate-400" />}
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                                    {log.device}
+                                    {log.current && <span className="text-[10px] uppercase font-bold text-janmat-blue bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 dark:bg-blue-900/40 dark:border-blue-800 dark:text-blue-300">{t('this_device')}</span>}
+                                </p>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                                    <span>{log.ip}</span>
+                                    <span className="hidden sm:inline">&bull;</span>
+                                    <span>{log.location}</span>
+                                </p>
+                            </div>
+                            <div className="text-sm text-slate-400 font-medium whitespace-nowrap dark:text-slate-500">
+                                {log.time}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

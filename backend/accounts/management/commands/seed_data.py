@@ -24,6 +24,7 @@ class Command(BaseCommand):
         AuditLog.objects.all().delete()
         Voter.objects.all().delete()
         BiometricTemplate.objects.all().delete()
+        Operator.objects.all().delete()
         
         self.stdout.write('Seeding Multi-Tenant Data...')
         
@@ -55,23 +56,15 @@ class Command(BaseCommand):
             for i in range(1, num_ops + 1):
                 booth_num = f"{prefix}-{random.randint(100, 999)}"
                 op_email = f"op.{prefix.lower()}{i}@janmat.com"
-                
-                Operator.objects.filter(booth_id=booth_num).delete()
 
-                op, _ = Operator.objects.get_or_create(
+                op = Operator.objects.create(
                     email=op_email,
-                    defaults={
-                        'password': make_password('123'),
-                        'name': f"{get_random_name()} ({prefix})",
-                        'booth_id': booth_num,
-                        'created_by': admin,
-                        'is_active': random.choice([True, True, True, False])
-                    }
+                    password=make_password('123'),
+                    name=f"{get_random_name()} ({prefix})",
+                    booth_id=booth_num,
+                    created_by=admin,
+                    is_active=random.choice([True, True, True, False])
                 )
-                if op.created_by != admin:
-                    op.created_by = admin
-                    op.save()
-                    
                 all_operators.append(op)
 
         self.stdout.write(f'Ensured Operators distributed across tenants')

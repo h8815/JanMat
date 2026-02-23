@@ -25,16 +25,64 @@ class AadhaarService:
     SEND_OTP_URL = "https://api.sandbox.co.in/kyc/aadhaar/okyc/otp"
     VERIFY_OTP_URL = "https://api.sandbox.co.in/kyc/aadhaar/okyc/otp/verify"
     
+    # Demo voter names pool
+    DEMO_NAMES = [
+        ("राजेश कुमार", "Rajesh Kumar"),
+        ("प्रिया शर्मा", "Priya Sharma"),
+        ("अमित सिंह", "Amit Singh"),
+        ("सुनीता देवी", "Sunita Devi"),
+        ("विकास गुप्ता", "Vikas Gupta"),
+        ("अनीता वर्मा", "Anita Verma"),
+        ("संजय पटेल", "Sanjay Patel"),
+        ("रीता यादव", "Rita Yadav"),
+        ("मनोज तिवारी", "Manoj Tiwari"),
+        ("कविता मिश्रा", "Kavita Mishra"),
+    ]
+    
     @staticmethod
     def send_otp(aadhaar_number, admin_id):
-        """Send OTP to Aadhaar registered mobile - CORRECTED API CALL"""
+        """Send OTP to Aadhaar registered mobile - supports DEMO_MODE"""
         try:
             # Rate limiting per admin
             rate_key = f"otp_rate_{admin_id}_{aadhaar_number}"
             if cache.get(rate_key, 0) >= settings.MAX_OTP_ATTEMPTS:
                 raise Exception("Rate limit exceeded for this Aadhaar")
             
-            # CORRECT: Call Sandbox API with proper payload format
+            # ═══════════════════════════════════════════
+            # DEMO MODE: Skip Sandbox API entirely
+            # ═══════════════════════════════════════════
+            if getattr(settings, 'DEMO_MODE', False):
+                reference_id = f"demo_{aadhaar_number}_{timezone.now().strftime('%Y%m%d%H%M%S')}"
+                expires_at = timezone.now() + timedelta(minutes=settings.OTP_EXPIRY_MINUTES)
+                
+                with transaction.atomic():
+                    OTPCode.objects.filter(
+                        admin_id=admin_id,
+                        aadhaar_number=aadhaar_number,
+                        is_used=False
+                    ).update(is_used=True)
+                    
+                    OTPCode.objects.create(
+                        admin_id=admin_id,
+                        aadhaar_number=aadhaar_number,
+                        otp_code=getattr(settings, 'DEMO_OTP', '123456'),
+                        reference_id=reference_id,
+                        expires_at=expires_at
+                    )
+                
+                cache.set(rate_key, cache.get(rate_key, 0) + 1, timeout=3600)
+                logger.info(f"[DEMO] OTP created for Aadhaar {aadhaar_number}")
+                
+                return {
+                    'success': True,
+                    'message': 'OTP sent successfully to registered mobile number',
+                    'reference_id': reference_id,
+                    'expires_at': expires_at.isoformat()
+                }
+            
+            # ═══════════════════════════════════════════
+            # PRODUCTION: Call Sandbox API
+            # ═══════════════════════════════════════════
             headers = {
                 "accept": "application/json",
                 "authorization": settings.SANDBOX_AUTHORIZATION,
@@ -46,7 +94,7 @@ class AadhaarService:
             payload = {
                 "@entity": "in.co.sandbox.kyc.aadhaar.okyc.otp.request",
                 "aadhaar_number": aadhaar_number,
-                "consent": "y",  # lowercase 'y' as per API spec
+                "consent": "y",
                 "reason": "For KYC verification"
             }
             
@@ -60,35 +108,29 @@ class AadhaarService:
             response_data = response.json()
             
             if response.status_code == 200 and response_data.get('data'):
-                # Extract reference_id from response
                 reference_id = response_data['data'].get('reference_id')
                 
                 if not reference_id:
                     raise Exception("No reference_id in API response")
                 
-                # CRITICAL: Store reference_id in OTP record
                 expires_at = timezone.now() + timedelta(minutes=settings.OTP_EXPIRY_MINUTES)
                 
                 with transaction.atomic():
-                    # Invalidate previous OTPs for this Aadhaar under this admin
                     OTPCode.objects.filter(
                         admin_id=admin_id,
                         aadhaar_number=aadhaar_number,
                         is_used=False
                     ).update(is_used=True)
                     
-                    # Create new OTP record with reference_id
                     otp_record = OTPCode.objects.create(
                         admin_id=admin_id,
                         aadhaar_number=aadhaar_number,
-                        otp_code="",  # We don't know the OTP, Sandbox sends it via SMS
-                        reference_id=reference_id,  # CRITICAL: Store this
+                        otp_code="",
+                        reference_id=reference_id,
                         expires_at=expires_at
                     )
                 
-                # Update rate limiting
                 cache.set(rate_key, cache.get(rate_key, 0) + 1, timeout=3600)
-                
                 logger.info(f"OTP sent for Aadhaar {aadhaar_number}, reference_id: {reference_id}")
                 
                 return {
@@ -107,9 +149,9 @@ class AadhaarService:
     
     @staticmethod
     def verify_otp(aadhaar_number, otp_code, admin_id):
-        """Verify OTP and retrieve Aadhaar details - CORRECTED API CALL"""
+        """Verify OTP and retrieve Aadhaar details - supports DEMO_MODE"""
         try:
-            # Find latest OTP record with reference_id
+            # Find latest OTP record
             otp_record = OTPCode.objects.filter(
                 admin_id=admin_id,
                 aadhaar_number=aadhaar_number,
@@ -122,9 +164,6 @@ class AadhaarService:
             if otp_record.is_expired:
                 return {'success': False, 'error': 'OTP expired. Please request a new OTP.'}
             
-            if not otp_record.reference_id:
-                return {'success': False, 'error': 'Invalid OTP session. Please request OTP again.'}
-            
             # Increment attempts
             otp_record.attempts += 1
             otp_record.save()
@@ -134,7 +173,64 @@ class AadhaarService:
                 otp_record.save()
                 return {'success': False, 'error': 'Maximum attempts exceeded'}
             
-            # CORRECT: Verify with Sandbox API
+            # ═══════════════════════════════════════════
+            # DEMO MODE: Accept demo OTP and return dummy voter
+            # ═══════════════════════════════════════════
+            if getattr(settings, 'DEMO_MODE', False):
+                expected_otp = getattr(settings, 'DEMO_OTP', '123456')
+                if otp_code != expected_otp:
+                    return {'success': False, 'error': f'Invalid OTP. (Demo: use {expected_otp})'}
+                
+                # Mark OTP as used
+                otp_record.is_used = True
+                otp_record.save()
+                
+                # Generate demo voter data based on Aadhaar (deterministic)
+                idx = int(aadhaar_number[-2:]) % len(AadhaarService.DEMO_NAMES)
+                name_hindi, name_en = AadhaarService.DEMO_NAMES[idx]
+                
+                gender = 'Male' if int(aadhaar_number[-1]) % 2 == 0 else 'Female'
+                dob_year = 1970 + (int(aadhaar_number[-4:-2]) % 40)
+                dob_month = (int(aadhaar_number[-3]) % 12) + 1
+                dob_day = (int(aadhaar_number[-2]) % 28) + 1
+                
+                voter, created = Voter.objects.get_or_create(
+                    admin_id=admin_id,
+                    aadhaar_number=aadhaar_number,
+                    defaults={
+                        'full_name': name_en,
+                        'full_name_hindi': name_hindi,
+                        'date_of_birth': f'{dob_year}-{dob_month:02d}-{dob_day:02d}',
+                        'gender': gender,
+                        'mobile_number': f'+91-XXXXX{aadhaar_number[-4:]}',
+                        'full_address': 'Demo Address, New Delhi - 110001',
+                        'photo_base64': '',
+                    }
+                )
+                
+                logger.info(f"[DEMO] OTP verified for Aadhaar {aadhaar_number}")
+                
+                return {
+                    'success': True,
+                    'voter': {
+                        'id': str(voter.id),
+                        'full_name': voter.full_name,
+                        'full_name_hindi': voter.full_name_hindi,
+                        'aadhaar_masked': f"XXXX XXXX {aadhaar_number[-4:]}",
+                        'gender': voter.gender,
+                        'date_of_birth': str(voter.date_of_birth),
+                        'full_address': voter.full_address,
+                        'photo_base64': voter.photo_base64,
+                        'has_voted': voter.has_voted,
+                    }
+                }
+            
+            # ═══════════════════════════════════════════
+            # PRODUCTION: Verify with Sandbox API
+            # ═══════════════════════════════════════════
+            if not otp_record.reference_id:
+                return {'success': False, 'error': 'Invalid OTP session. Please request OTP again.'}
+            
             headers = {
                 "accept": "application/json",
                 "authorization": settings.SANDBOX_AUTHORIZATION,
@@ -159,14 +255,11 @@ class AadhaarService:
             response_data = response.json()
             
             if response.status_code == 200 and response_data.get('data', {}).get('status') == 'VALID':
-                # Mark OTP as used
                 otp_record.is_used = True
                 otp_record.save()
                 
-                # Extract Aadhaar data
                 data = response_data['data']
                 
-                # Get or create voter record
                 voter, created = Voter.objects.get_or_create(
                     admin_id=admin_id,
                     aadhaar_number=aadhaar_number,
@@ -177,7 +270,7 @@ class AadhaarService:
                         'gender': data.get('gender', 'Other'),
                         'mobile_number': data.get('mobile_number', ''),
                         'full_address': data.get('full_address', ''),
-                        'photo_base64': data.get('photo', ''),  # Store base64 photo
+                        'photo_base64': data.get('photo', ''),
                     }
                 )
                 
@@ -189,11 +282,11 @@ class AadhaarService:
                         'id': str(voter.id),
                         'full_name': voter.full_name,
                         'full_name_hindi': voter.full_name_hindi,
-                        'aadhaar_masked': f"XXXX-XXXX-{aadhaar_number[-4:]}",
+                        'aadhaar_masked': f"XXXX XXXX {aadhaar_number[-4:]}",
                         'gender': voter.gender,
                         'date_of_birth': str(voter.date_of_birth),
                         'full_address': voter.full_address,
-                        'photo_base64': voter.photo_base64,  # Send photo to frontend
+                        'photo_base64': voter.photo_base64,
                         'has_voted': voter.has_voted,
                     }
                 }
@@ -243,16 +336,20 @@ class BiometricService:
             existing_template = BiometricTemplate.objects.filter(
                 admin_id=admin_id,
                 template_hash=template_hash
-            ).select_related('voter').first()
+            ).first()
             
             if existing_template:
+                voter = Voter.objects.filter(id=existing_template.voter_id).first()
+                voter_name = voter.full_name if voter else "Unknown"
+                aadhaar_masked = f"XXXX-XXXX-{voter.aadhaar_number[-4:]}" if voter else "XXXX-XXXX-XXXX"
+                
                 logger.warning(f"Duplicate biometric detected under admin {admin_id}")
                 return {
                     'is_duplicate': True,
                     'existing_voter': {
-                        'id': str(existing_template.voter.id),
-                        'name': existing_template.voter.full_name,
-                        'aadhaar_masked': f"XXXX-XXXX-{existing_template.voter.aadhaar_number[-4:]}",
+                        'id': str(existing_template.voter_id),
+                        'name': voter_name,
+                        'aadhaar_masked': aadhaar_masked,
                         'verified_at': existing_template.created_at.isoformat()
                     }
                 }
@@ -274,16 +371,17 @@ class BiometricService:
                 # Create biometric template
                 template = BiometricTemplate.objects.create(
                     admin_id=admin_id,
-                    voter=voter,
+                    voter_id=voter.id,
                     template_hash=template_hash,
                     scan_quality=quality_score,
                     operator_id=operator_id
                 )
                 
-                # Mark voter as verified
+                # Mark voter as verified and voted
                 voter.verified_at = timezone.now()
                 voter.operator_id = operator_id
-                voter.save(update_fields=['verified_at', 'operator_id'])
+                voter.has_voted = True
+                voter.save(update_fields=['verified_at', 'operator_id', 'has_voted'])
             
             logger.info(f"Biometric template stored for voter {voter_id} under admin {admin_id}")
             

@@ -317,3 +317,71 @@ def mark_all_reviewed(request):
     except Exception as e:
         logger.error(f"Mark all reviewed error: {str(e)}")
         return Response({'error': 'Failed to update logs'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def operator_report_fraud(request):
+    """Operator-facing endpoint to manually report a fraud incident"""
+    user = request.user
+    role = getattr(user, 'role', '')
+    
+    if role != 'OPERATOR':
+        return Response({'error': 'Only operators can report incidents'}, status=403)
+    
+    if not user.created_by:
+        return Response({'error': 'Operator not properly configured'}, status=403)
+    
+    fraud_type = request.data.get('fraud_type', '').strip()
+    aadhaar_number = request.data.get('aadhaar_number', '').strip()
+    description = request.data.get('description', '').strip()
+    severity = request.data.get('severity', 'medium').strip()
+    
+    if not fraud_type:
+        return Response({'error': 'Fraud type is required'}, status=400)
+    
+    VALID_TYPES = ['suspicious_activity', 'impersonation', 'technical_issue', 'unauthorized_access', 'duplicate_biometric', 'already_voted', 'other']
+    if fraud_type not in VALID_TYPES:
+        return Response({'error': f'Invalid fraud type. Use: {", ".join(VALID_TYPES)}'}, status=400)
+    
+    if aadhaar_number and (len(aadhaar_number) != 12 or not aadhaar_number.isdigit()):
+        return Response({'error': 'Aadhaar must be 12 digits'}, status=400)
+    
+    try:
+        fraud_log = FraudLog.objects.create(
+            fraud_type=fraud_type,
+            aadhaar_number=aadhaar_number or '',
+            operator=user,
+            booth_number=user.booth_id or '',
+            admin=user.created_by,
+            details={
+                'description': description,
+                'severity': severity,
+                'reported_by': 'operator',
+                'operator_name': user.name,
+                'ip_address': request.META.get('REMOTE_ADDR', ''),
+            }
+        )
+        
+        # Audit log
+        from verification.services import AuditService
+        try:
+            AuditService.log_action(
+                action='fraud_reported',
+                user_type='operator',
+                user_id=user.id,
+                admin_id=user.created_by.id,
+                details={'fraud_type': fraud_type, 'fraud_log_id': str(fraud_log.id)},
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+        except Exception:
+            pass
+        
+        return Response({
+            'success': True,
+            'message': 'Incident reported successfully',
+            'id': str(fraud_log.id)
+        }, status=201)
+        
+    except Exception as e:
+        logger.error(f"Operator fraud report error: {e}")
+        return Response({'error': 'Failed to submit report'}, status=500)

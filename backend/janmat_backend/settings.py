@@ -180,6 +180,18 @@ MAX_OTP_ATTEMPTS = config('MAX_OTP_ATTEMPTS', default=3, cast=int)
 BIOMETRIC_HASH_ALGORITHM = config('BIOMETRIC_HASH_ALGORITHM', default='SHA256')
 BIOMETRIC_SALT = config('BIOMETRIC_SALT', default='janmat-biometric-salt-2024')
 
+# Demo mode: bypasses Sandbox API and uses dummy data
+DEMO_MODE = config('DEMO_MODE', default=False, cast=bool)
+DEMO_OTP = config('DEMO_OTP', default='123456')
+
+# Cache configuration (shared across workers)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'janmat_cache_table',
+    }
+}
+
 # Logging
 LOGGING = {
     'version': 1,
@@ -208,3 +220,11 @@ LOGGING = {
         'level': config('LOG_LEVEL', default='INFO'),
     },
 }
+
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')

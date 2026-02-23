@@ -9,7 +9,30 @@ from django.db.models import Count, Q
 from django.db.models.functions import TruncHour, TruncDay
 from django.core.paginator import Paginator
 from django.contrib.auth.hashers import check_password, make_password
+from django.http import HttpResponse
 import logging
+import string
+import secrets
+from django.core.mail import send_mail
+from django.conf import settings
+
+def generate_temp_password(length=12):
+    alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+    while True:
+        pwd = ''.join(secrets.choice(alphabet) for i in range(length))
+        if (any(c.islower() for c in pwd) and 
+            any(c.isupper() for c in pwd) and 
+            any(c.isdigit() for c in pwd) and 
+            any(c in "!@#$%^&*" for c in pwd)):
+            return pwd
+
+try:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.lib import colors
+except ImportError:
+    pass
 
 from .models import SuperAdmin, Admin, Operator
 from .serializers import (
@@ -55,18 +78,18 @@ def get_tokens_for_user(user, role):
 def admin_login(request):
     """Login for SUPERUSER and ADMIN roles"""
     try:
-        email = request.data.get('email')
+        username_or_email = request.data.get('username') or request.data.get('email')
         password = request.data.get('password')
         
-        if not email or not password:
-            return Response({'error': 'Email and password required'}, status=400)
+        if not username_or_email or not password:
+            return Response({'error': 'Username/Email and password required'}, status=400)
         
         user = None
         role = None
 
         # 1. Try SuperAdmin
         try:
-            sa = SuperAdmin.objects.get(email__iexact=email)
+            sa = SuperAdmin.objects.get(Q(email__iexact=username_or_email) | Q(username__iexact=username_or_email))
             if check_password(password, sa.password):
                 user = sa
                 role = 'SUPERUSER'
@@ -76,7 +99,7 @@ def admin_login(request):
         # 2. Try Admin if not found
         if not user:
             try:
-                ad = Admin.objects.get(email__iexact=email)
+                ad = Admin.objects.get(Q(email__iexact=username_or_email) | Q(username__iexact=username_or_email))
                 if check_password(password, ad.password):
                     user = ad
                     role = 'ADMIN'
@@ -84,7 +107,7 @@ def admin_login(request):
                 pass
 
         if not user:
-            logger.warning(f"Login failed: Invalid credentials for {email}")
+            logger.warning(f"Login failed: Invalid credentials for {username_or_email}")
             return Response({'error': 'Invalid credentials'}, status=401)
         
         if not user.is_active:
@@ -102,12 +125,18 @@ def admin_login(request):
         else:
             user_data = AdminSerializer(user).data
 
-        return Response({
+        response_data = {
             'access': tokens['access'],
             'refresh': tokens['refresh'],
             'role': role,
             'user': user_data
-        })
+        }
+
+        # Check for forced password change on first login
+        if hasattr(user, 'must_change_password') and user.must_change_password:
+            response_data['must_change_password'] = True
+
+        return Response(response_data)
         
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
@@ -122,11 +151,11 @@ def operator_login(request):
     if not serializer.is_valid():
         return Response({'error': 'Invalid input', 'details': serializer.errors}, status=400)
     
-    email = serializer.validated_data['email']
+    username_or_email = serializer.validated_data.get('username') or serializer.validated_data.get('email')
     password = serializer.validated_data['password']
     
     try:
-        user = Operator.objects.select_related('created_by').get(email=email)
+        user = Operator.objects.select_related('created_by').get(Q(email__iexact=username_or_email) | Q(username__iexact=username_or_email))
         
         if not check_password(password, user.password):
             return Response({'error': 'Invalid credentials'}, status=401)
@@ -136,7 +165,7 @@ def operator_login(request):
         
         # Ensure operator has admin (tenant isolation)
         if not user.created_by:
-            logger.error(f"Operator {email} has no admin assigned")
+            logger.error(f"Operator {username_or_email} has no admin assigned")
             return Response({'error': 'Configuration error'}, status=403)
         
         # Update last login
@@ -240,15 +269,31 @@ def create_operator(request):
              return Response({'error': 'Only Admins can create Operators currently'}, status=403)
         
         with transaction.atomic():
+            temp_password = generate_temp_password()
             operator = Operator.objects.create(
+                username=serializer.validated_data['username'],
                 email=serializer.validated_data['email'],
-                password=make_password(serializer.validated_data['password']),
+                password=make_password(temp_password),
                 name=serializer.validated_data.get('full_name', ''),
                 booth_id=serializer.validated_data['booth_id'],
                 created_by=admin_ref,
                 must_change_password=True,
                 is_active=True
             )
+            
+            # Dispatch Welcome Email
+            try:
+                subject = "Your JanMat Operator Account Credentials"
+                message = f"Welcome {operator.name or 'Operator'}!\n\nYour account has been successfully provisioned for Booth {operator.booth_id}.\n\nYour login details are:\nUsername: {operator.username}\nTemporary Password: {temp_password}\n\nPlease login to the portal. You will be required to change your password immediately upon your first login for security reasons."
+                send_mail(
+                    subject,
+                    message,
+                    settings.EMAIL_HOST_USER,
+                    [operator.email],
+                    fail_silently=False,
+                )
+            except Exception as mail_err:
+                logger.error(f"Failed to send welcome email to {operator.email}: {mail_err}")
         
         AuditService.log_action(
             action='operator_created',
@@ -336,6 +381,92 @@ def list_operators(request):
         logger.error(f"List Operators error: {e}")
         return Response({'error': 'Failed to load operators'}, status=500)
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def setup_initial_password(request):
+    """Endpoint for Operators/Admins to set their password on their first login"""
+    username = request.data.get('username')
+    temp_password = request.data.get('temp_password')
+    new_password = request.data.get('new_password')
+    
+    if not all([username, temp_password, new_password]):
+        return Response({'error': 'Missing required fields'}, status=400)
+        
+    try:
+        from django.contrib.auth.password_validation import validate_password
+        validate_password(new_password)
+    except Exception as e:
+        return Response({'error': str(e)}, status=400)
+
+    user = None
+    role = None
+    
+    # Check Admin
+    try:
+        ad = Admin.objects.get(Q(username__iexact=username) | Q(email__iexact=username))
+        if check_password(temp_password, ad.password):
+            user = ad
+            role = 'ADMIN'
+    except Admin.DoesNotExist:
+        pass
+        
+    # Check Operator
+    if not user:
+        try:
+            op = Operator.objects.get(Q(username__iexact=username) | Q(email__iexact=username))
+            if check_password(temp_password, op.password):
+                user = op
+                role = 'OPERATOR'
+        except Operator.DoesNotExist:
+            pass
+            
+    if not user:
+        return Response({'error': 'Invalid credentials'}, status=401)
+        
+    if not getattr(user, 'must_change_password', False):
+        return Response({'error': 'Account does not require a password change'}, status=400)
+        
+    # Update Password
+    user.password = make_password(new_password)
+    user.must_change_password = False
+    
+    # Update last login
+    user.last_login = timezone.now()
+    user.save()
+    
+    # Audit log
+    if role == 'OPERATOR' and user.created_by:
+        AuditService.log_action(
+            action='initial_password_set',
+            user_type='operator',
+            user_id=user.id,
+            admin_id=user.created_by.id,
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+        
+    # Generate fresh tokens
+    tokens = get_tokens_for_user(user, role)
+    
+    if role == 'ADMIN':
+        user_data = AdminSerializer(user).data
+        response_data = {
+            'access': tokens['access'],
+            'refresh': tokens['refresh'],
+            'role': role,
+            'user': user_data
+        }
+    else:
+        user_data = OperatorSerializer(user).data
+        response_data = {
+            'access': tokens['access'],
+            'refresh': tokens['refresh'],
+            'role': role,
+            'user': user_data,
+            'admin_id': str(user.created_by.id) if user.created_by else None
+        }
+        
+    return Response(response_data)
+
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticated, IsAdmin])
 def manage_operator(request, pk):
@@ -371,6 +502,55 @@ def manage_operator(request, pk):
     except Exception as e:
         logger.error(f"Manage Operator error: {e}")
         return Response({'error': 'Operation failed'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdmin])
+def toggle_operator_status(request, pk):
+    """
+    Dedicated endpoint to activate/deactivate an individual operator.
+    Operates on the correct Operator.is_active field — NOT Django auth.
+    """
+    try:
+        user = request.user
+        role = getattr(user, 'role', '')
+
+        if role == 'SUPERUSER':
+            operator = Operator.objects.get(pk=pk)
+        elif role == 'ADMIN':
+            operator = Operator.objects.get(pk=pk, created_by=user)
+        else:
+            return Response({'error': 'Unauthorized'}, status=403)
+
+        # Flip is_active
+        operator.is_active = not operator.is_active
+        operator.save(update_fields=['is_active'])
+
+        action = 'operator_activated' if operator.is_active else 'operator_deactivated'
+        try:
+            AuditService.log_action(
+                action=action,
+                user_type='admin',
+                user_id=user.id,
+                admin_id=user.id if role == 'ADMIN' else None,
+                resource_type='operator',
+                resource_id=operator.id,
+                details={'new_status': operator.is_active},
+                ip_address=request.META.get('REMOTE_ADDR')
+            )
+        except Exception as audit_err:
+            logger.warning(f"Audit log failed: {audit_err}")
+
+        return Response({
+            'success': True,
+            'is_active': operator.is_active,
+            'message': f"Operator {'activated' if operator.is_active else 'deactivated'} successfully"
+        })
+
+    except Operator.DoesNotExist:
+        return Response({'error': 'Operator not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Toggle status error: {e}")
+        return Response({'error': 'Failed to toggle status'}, status=500)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsAdmin])
@@ -623,48 +803,121 @@ def export_admin_report(request):
         user = request.user
         role = getattr(user, 'role', '')
         
-        # 1. Gather Data
+        # Read query params for export customization
+        start_date = request.GET.get('start_date', '').strip()
+        end_date   = request.GET.get('end_date', '').strip()
+        report_type = request.GET.get('report_type', 'full').strip().lower()
+        limit      = min(int(request.GET.get('limit', 10000)), 50000)
+
+        # 1. Base Filters
         filters = {}
         if role == 'ADMIN':
             filters['admin_id'] = user.id
             op_filters = {'created_by': user}
             fraud_filters = {'admin': user}
+            audit_filters = {'admin_id': user.id}
         else:
             op_filters = {}
             fraud_filters = {}
-            
-        stats = {
-            'Total Operators': Operator.objects.filter(**op_filters).count(),
-            'Total Registered Voters': Voter.objects.filter(**filters).count(),
-            'Verified Voters': Voter.objects.filter(verified_at__isnull=False, **filters).count(),
-            'Fraud Alerts': FraudLog.objects.filter(**fraud_filters).count(),
+            audit_filters = {}
+
+        # Apply date filters
+        if start_date:
+            fraud_filters['flagged_at__date__gte'] = start_date
+            audit_filters['created_at__date__gte'] = start_date
+        if end_date:
+            fraud_filters['flagged_at__date__lte'] = end_date
+            audit_filters['created_at__date__lte'] = end_date
+
+        # PDF Labels
+        t = {
+            'title': 'JanMat Admin Report',
+            'date': 'Date',
+            'gen_by': 'Generated by',
+            'stats': 'Key Statistics',
+            'ops_list': 'Operators List',
+            'fraud_logs': f'Recent Fraud Alerts (Limit: {limit})',
+            'audit_logs': f'Recent Audit Logs (Limit: {limit})',
+            'no_ops': 'No operators found.',
+            'no_fraud': 'No fraud alerts found.',
+            'no_audit': 'No audit logs found.',
+            'col_time': 'Time', 'col_type': 'Type', 'col_booth': 'Booth', 'col_op': 'Operator', 'col_admin': 'Admin',
+            'col_name': 'Name', 'col_email': 'Email', 'col_status': 'Status',
+            'col_action': 'Action', 'col_role': 'Role', 'col_user': 'Username', 'col_ip': 'IP',
+            'active': 'Active', 'inactive': 'Inactive',
+            'status_verified': 'Verified Voters',
+            'status_fraud': 'Fraud Alerts',
+            'status_total_op': 'Total Operators',
+            'status_total_voter': 'Total Registered Voters'
         }
 
-        operators = Operator.objects.filter(**op_filters).values_list('name', 'email', 'booth_id', 'is_active')
-        operator_data = [['Name', 'Email', 'Booth ID', 'Status']] + [
-            [op[0], op[1], op[2], 'Active' if op[3] else 'Inactive'] for op in operators
-        ]
+        # Data collection based on report_type
+        stats = {}
+        if report_type in ['full', 'verifications', 'operators']:
+            stats[t['status_total_op']] = Operator.objects.filter(**op_filters).count()
+            stats[t['status_total_voter']] = Voter.objects.filter(**filters).count()
+            stats[t['status_verified']] = Voter.objects.filter(verified_at__isnull=False, **filters).count()
+        if report_type in ['full', 'fraud']:
+            stats[t['status_fraud']] = FraudLog.objects.filter(**fraud_filters).count()
 
-        fraud_logs = FraudLog.objects.filter(**fraud_filters).select_related('operator', 'admin').order_by('-flagged_at')[:50]
-        
-        fraud_data = [['Time', 'Type', 'Booth', 'Operator', 'Admin']]
-        for log in fraud_logs:
-            op_name = log.operator.name if log.operator else 'Unknown'
-            # Fallback if name is empty but obj exists (e.g. just email)
-            if log.operator and not op_name: op_name = log.operator.email
+        # Operators Data
+        operator_data = []
+        if report_type in ['full', 'operators']:
+            ops = Operator.objects.filter(**op_filters).values_list('name', 'email', 'booth_id', 'is_active')
+            operator_data = [[t['col_name'], t['col_email'], t['col_booth'], t['col_status']]] + [
+                [op[0], op[1], op[2], t['active'] if op[3] else t['inactive']] for op in ops
+            ]
+
+        # Fraud Data
+        fraud_data = []
+        if report_type in ['full', 'fraud']:
+            fraud_logs = FraudLog.objects.filter(**fraud_filters).select_related('operator', 'admin').order_by('-flagged_at')[:limit]
+            fraud_data = [[t['col_time'], t['col_type'], t['col_booth'], t['col_op'], t['col_admin']]]
+            for log in fraud_logs:
+                op_name = log.operator.name if log.operator else 'Unknown'
+                if log.operator and not op_name: op_name = log.operator.email
+                admin_name = log.admin.name if log.admin else 'System'
+                fraud_data.append([
+                    log.flagged_at.strftime("%Y-%m-%d %H:%M"),
+                    log.fraud_type.replace('_', ' ').title(),
+                    log.booth_number,
+                    op_name,
+                    admin_name
+                ])
+
+        # Audit Data
+        audit_table_data = []
+        if report_type in ['full', 'audit']:
+            audit_qs = AuditLog.objects.filter(**audit_filters).order_by('-created_at')[:limit]
             
-            admin_name = log.admin.name if log.admin else 'System'
-            fraud_data.append([
-                log.flagged_at.strftime("%Y-%m-%d %H:%M"),
-                log.fraud_type.replace('_', ' ').title(),
-                log.booth_number,
-                op_name,
-                admin_name
-            ])
+            admin_map = {str(a.id): a.name for a in Admin.objects.all()}
+            op_map = {str(o.id): o.name or o.full_name for o in Operator.objects.all()}
+            
+            audit_table_data = [[t['col_time'], t['col_action'], t['col_role'], t['col_user'], t['col_ip']]]
+            for log in audit_qs:
+                uid = str(log.user_id)
+                username = 'Unknown'
+                if log.user_type == 'admin':
+                    username = admin_map.get(uid, uid)
+                elif log.user_type == 'operator':
+                    username = op_map.get(uid, uid)
+                elif log.user_type == 'superadmin':
+                    username = 'SuperAdmin'
+                    
+                audit_table_data.append([
+                    log.created_at.strftime("%Y-%m-%d %H:%M"),
+                    log.action,
+                    log.user_type.upper(),
+                    username,
+                    log.ip_address
+                ])
 
         # 2. Generate PDF
         response = HttpResponse(content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="admin_report_{timezone.now().date()}.pdf"'
+        filename_prefix = "admin_report"
+        if report_type != "full":
+            filename_prefix = f"admin_{report_type}_report"
+        response['Content-Disposition'] = f'attachment; filename="{filename_prefix}_{timezone.now().date()}.pdf"'
 
         doc = SimpleDocTemplate(response, pagesize=letter)
         elements = []
@@ -692,131 +945,102 @@ def export_admin_report(request):
         heading_style.spaceAfter = 10
 
         # Title
-        elements.append(Paragraph(f"JanMat Admin Report", title_style))
-        elements.append(Paragraph(f"Date: {timezone.now().date()}", styles['Normal']))
-        elements.append(Paragraph(f"Generated by: {user.email}", styles['Normal']))
+        elements.append(Paragraph(t['title'], title_style))
+        date_str = timezone.now().date().strftime("%Y-%m-%d")
+        if start_date or end_date:
+            date_str = f"{start_date or 'Beginning'} to {end_date or 'Now'}"
+        elements.append(Paragraph(f"{t['date']}: {date_str}", styles['Normal']))
+        admin_name = getattr(user, 'name', getattr(user, 'full_name', 'System Admin'))
+        elements.append(Paragraph(f"{t['gen_by']}: {user.email} | {admin_name}", styles['Normal']))
         elements.append(Spacer(1, 20))
 
         # Stats Table
-        elements.append(Paragraph("Key Statistics", heading_style))
-        stats_data = [[k, str(v)] for k, v in stats.items()]
-        t_stats = Table(stats_data, colWidths=[200, 100], hAlign='LEFT')
-        t_stats.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#E2E8F0')),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-            ('TOPPADDING', (0, 0), (-1, -1), 10),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ]))
-        elements.append(t_stats)
-        
-        # Operators Table - FIXED HEADERS
-        elements.append(Paragraph("Operators List", heading_style))
-        if len(operator_data) > 1:
-            t_ops = Table(operator_data, repeatRows=1, colWidths=[120, 180, 100, 80], hAlign='LEFT')
-            t_ops.setStyle(TableStyle([
-                # Header Row Styling (row 0)
-                ('BACKGROUND', (0, 0), (-1, 0), HEADER_BG),
-                ('TEXTCOLOR', (0, 0), (-1, 0), HEADER_TEXT),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('TOPPADDING', (0, 0), (-1, 0), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                # Body Rows Styling (row 1 onwards)
+        if stats:
+            elements.append(Paragraph(t['stats'], heading_style))
+            stats_data = [[k, str(v)] for k, v in stats.items()]
+            t_stats = Table(stats_data, colWidths=[200, 100], hAlign='LEFT')
+            t_stats.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#E2E8F0')),
+                ('TEXTCOLOR', (0, 0), (0, -1), colors.black),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTSIZE', (0, 1), (-1, -1), 9),
-                ('TOPPADDING', (0, 1), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_BG, ROW_WHITE]),
-                # Grid
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ]))
-            elements.append(t_ops)
-        else:
-            elements.append(Paragraph("No operators found.", styles['Normal']))
+            elements.append(t_stats)
+            
+        # Operators Table
+        if report_type in ['full', 'operators']:
+            elements.append(Paragraph(t['ops_list'], heading_style))
+            if len(operator_data) > 1:
+                t_ops = Table(operator_data, repeatRows=1, colWidths=[120, 180, 100, 80], hAlign='LEFT')
+                t_ops.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), HEADER_BG),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), HEADER_TEXT),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 10),
+                    ('TOPPADDING', (0, 0), (-1, 0), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('TOPPADDING', (0, 1), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_BG, ROW_WHITE]),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                ]))
+                elements.append(t_ops)
+            else:
+                elements.append(Paragraph(t['no_ops'], styles['Normal']))
 
-        # Fraud Logs Table - FIXED HEADERS
-        elements.append(Paragraph("Recent Fraud Alerts (Last 50)", heading_style))
-        if len(fraud_data) > 1:
-            t_fraud = Table(fraud_data, repeatRows=1, colWidths=[90, 110, 80, 120, 100], hAlign='LEFT')
-            t_fraud.setStyle(TableStyle([
-                # Header Row Styling (row 0)
-                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DC2626')),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('TOPPADDING', (0, 0), (-1, 0), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                # Body Rows Styling (row 1 onwards)
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('TOPPADDING', (0, 1), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_BG, ROW_WHITE]),
-                # Grid
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ]))
-            elements.append(t_fraud)
-        else:
-            elements.append(Paragraph("No fraud alerts found.", styles['Normal']))
+        # Fraud Logs Table
+        if report_type in ['full', 'fraud']:
+            elements.append(Paragraph(t['fraud_logs'], heading_style))
+            if len(fraud_data) > 1:
+                t_fraud = Table(fraud_data, repeatRows=1, colWidths=[90, 110, 80, 120, 100], hAlign='LEFT')
+                t_fraud.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#DC2626')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('TOPPADDING', (0, 0), (-1, 0), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('TOPPADDING', (0, 1), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_BG, ROW_WHITE]),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                ]))
+                elements.append(t_fraud)
+            else:
+                elements.append(Paragraph(t['no_fraud'], styles['Normal']))
 
-        # Audit Logs Table - FIXED HEADERS
-        # Improved fetching logic
-        audit_qs = AuditLog.objects.filter(admin_id=user.id) if role == 'ADMIN' else AuditLog.objects.all()
-        audit_logs = audit_qs.order_by('-created_at')[:50]
-        
-        # Pre-fetch users for name mapping to avoid N+1 (simplified approach)
-        admin_map = {str(a.id): a.name for a in Admin.objects.all()}
-        op_map = {str(o.id): o.name or o.full_name for o in Operator.objects.all()}
-        
-        audit_table_data = [['Time', 'Action', 'Role', 'Username', 'IP']]
-        
-        for log in audit_logs:
-            uid = str(log.user_id)
-            username = 'Unknown'
-            if log.user_type == 'admin':
-                username = admin_map.get(uid, uid)
-            elif log.user_type == 'operator':
-                username = op_map.get(uid, uid)
-            elif log.user_type == 'superadmin':
-                username = 'SuperAdmin'
-                
-            audit_table_data.append([
-                log.created_at.strftime("%Y-%m-%d %H:%M"),
-                log.action,
-                log.user_type.upper(),
-                username,
-                log.ip_address
-            ])
-        
-        elements.append(Paragraph("Recent Audit Logs (Last 50)", heading_style))
-        if len(audit_table_data) > 1:
-            t_audit = Table(audit_table_data, repeatRows=1, colWidths=[90, 100, 70, 120, 100], hAlign='LEFT')
-            t_audit.setStyle(TableStyle([
-                # Header Row Styling (row 0)
-                ('BACKGROUND', (0, 0), (-1, 0), JANMAT_BLUE),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 9),
-                ('TOPPADDING', (0, 0), (-1, 0), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-                # Body Rows Styling (row 1 onwards)
-                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('TOPPADDING', (0, 1), (-1, -1), 6),
-                ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
-                ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_BG, ROW_WHITE]),
-                # Grid
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
-            ]))
-            elements.append(t_audit)
-        else:
-             elements.append(Paragraph("No audit logs found.", styles['Normal']))
+        # Audit Logs Table
+        if report_type in ['full', 'audit']:
+            elements.append(Paragraph(t['audit_logs'], heading_style))
+            if len(audit_table_data) > 1:
+                t_audit = Table(audit_table_data, repeatRows=1, colWidths=[90, 100, 70, 120, 100], hAlign='LEFT')
+                t_audit.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, 0), JANMAT_BLUE),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('TOPPADDING', (0, 0), (-1, 0), 8),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                    ('TOPPADDING', (0, 1), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 6),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [ROW_BG, ROW_WHITE]),
+                    ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+                ]))
+                elements.append(t_audit)
+            else:
+                 elements.append(Paragraph(t['no_audit'], styles['Normal']))
 
         # Watermark & Header Function
         def add_watermark(canvas, doc):
@@ -958,11 +1182,27 @@ def audit_logs(request):
 
         data = []
         for log in page_obj:
+            # Resolve user name from user_id
+            user_name = None
+            if log.user_id:
+                try:
+                    if log.user_type == 'operator':
+                        op = Operator.objects.filter(id=log.user_id).first()
+                        if op:
+                            user_name = op.name
+                    elif log.user_type == 'admin':
+                        adm = Admin.objects.filter(id=log.user_id).first()
+                        if adm:
+                            user_name = adm.name
+                except Exception:
+                    pass
+            
             data.append({
                 'id': str(log.id),
                 'action': log.action,
                 'user_type': log.user_type,
                 'user_id': str(log.user_id) if log.user_id else None,
+                'user_name': user_name,
                 'resource_type': log.resource_type,
                 'details': log.details,
                 'ip_address': log.ip_address,
@@ -980,3 +1220,52 @@ def audit_logs(request):
     except Exception as e:
         logger.error(f"Audit log error: {e}")
         return Response({'error': 'Failed to load audit logs'}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def operator_stats(request):
+    """Get stats for operator dashboard"""
+    user = request.user
+    role = getattr(user, 'role', '')
+    
+    if role != 'OPERATOR':
+        return Response({'error': 'Unauthorized'}, status=403)
+        
+    try:
+        now = timezone.now()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # 1. Verification Stats
+        today_verifications = Voter.objects.filter(operator_id=user.id, verified_at__gte=today_start).count()
+        total_verifications = Voter.objects.filter(operator_id=user.id).count()
+        
+        # 2. Fraud Stats
+        fraud_qs = FraudLog.objects.filter(operator_id=user.id)
+        fraud_alerts_today = fraud_qs.filter(flagged_at__gte=today_start).count()
+        pending_fraud_alerts = fraud_qs.filter(reviewed=False).count()
+        
+        # 3. Recent Verifications (last 5 today)
+        recent_voters = Voter.objects.filter(
+            operator_id=user.id,
+            verified_at__gte=today_start
+        ).order_by('-verified_at')[:5]
+        
+        recent_list = []
+        for v in recent_voters:
+            recent_list.append({
+                'name': v.full_name,
+                'aadhaar_masked': f"XXXX-{v.aadhaar_number[-4:]}" if v.aadhaar_number else '',
+                'time': v.verified_at.strftime('%H:%M') if v.verified_at else '',
+            })
+        
+        return Response({
+            'today_verifications': today_verifications,
+            'total_verifications': total_verifications,
+            'fraud_alerts_today': fraud_alerts_today,
+            'pending_fraud_alerts': pending_fraud_alerts,
+            'booth_id': user.booth_id,
+            'recent_verifications': recent_list,
+        })
+    except Exception as e:
+        logger.error(f"Operator stats error: {e}")
+        return Response({'error': 'Failed to load stats'}, status=500)

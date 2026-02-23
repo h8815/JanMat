@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Home, Users, AlertOctagon, FileText, Activity, LogOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, Users, AlertOctagon, FileText, Settings as SettingsIcon, LogOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
+    const { t } = useTranslation();
+
     // Add effect to prevent body scroll and horizontal overflow when sidebar is open on mobile
     useEffect(() => {
         if (isOpen) {
@@ -77,35 +80,35 @@ const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCol
                 <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 space-y-1 py-4">
                     <NavItem
                         icon={<Home className="w-5 h-5" />}
-                        label="Dashboard"
+                        label={t('nav_dashboard')}
                         active={activeTab === 'dashboard'}
                         collapsed={isCollapsed}
                         onClick={() => { setActiveTab('dashboard'); onClose(); }}
                     />
                     <NavItem
                         icon={<Users className="w-5 h-5" />}
-                        label="Operators"
+                        label={t('nav_operators')}
                         active={activeTab === 'operators'}
                         collapsed={isCollapsed}
                         onClick={() => { setActiveTab('operators'); onClose(); }}
                     />
                     <NavItem
                         icon={<AlertOctagon className="w-5 h-5" />}
-                        label="Fraud Logs"
+                        label={t('nav_fraud_monitoring')}
                         active={activeTab === 'fraud'}
                         collapsed={isCollapsed}
                         onClick={() => { setActiveTab('fraud'); onClose(); }}
                     />
                     <NavItem
                         icon={<FileText className="w-5 h-5" />}
-                        label="Audit Logs"
+                        label={t('nav_audit_logs')}
                         active={activeTab === 'audit'}
                         collapsed={isCollapsed}
                         onClick={() => { setActiveTab('audit'); onClose(); }}
                     />
                     <NavItem
-                        icon={<Activity className="w-5 h-5" />}
-                        label="Settings"
+                        icon={<SettingsIcon className="w-5 h-5" />}
+                        label={t('nav_settings')}
                         active={activeTab === 'settings'}
                         collapsed={isCollapsed}
                         onClick={() => { setActiveTab('settings'); onClose(); }}

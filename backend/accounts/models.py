@@ -34,6 +34,7 @@ class JanmatAuthUser(AbstractBaseUser, PermissionsMixin):
 class AbstractJanmatActor(models.Model):
     """Base class for all system actors with common credentials"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    username = models.CharField(max_length=150, unique=True, null=True, blank=True)
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128) # Stores hashed password
     name = models.CharField(max_length=255, blank=True)
@@ -63,6 +64,7 @@ class SuperAdmin(AbstractJanmatActor):
 
 class Admin(AbstractJanmatActor):
     """Middle-level Entity: Tenant/District Admin"""
+    must_change_password = models.BooleanField(default=True)
     # Linked to SuperAdmin who created/manages them
     created_by = models.ForeignKey(SuperAdmin, on_delete=models.SET_NULL, null=True, related_name='admins')
     
@@ -73,7 +75,7 @@ class Admin(AbstractJanmatActor):
 class Operator(AbstractJanmatActor):
     """Field-level Entity: Booth Operator"""
     booth_id = models.CharField(max_length=50)
-    must_change_password = models.BooleanField(default=False)
+    must_change_password = models.BooleanField(default=True)
     
     # Linked to Admin (Tenant) who created them
     created_by = models.ForeignKey(Admin, on_delete=models.CASCADE, related_name='operators')
