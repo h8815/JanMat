@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../constants/roles';
 
 const Breadcrumbs = ({ customMappings = {} }) => {
     const location = useLocation();
@@ -39,9 +40,9 @@ const Breadcrumbs = ({ customMappings = {} }) => {
     if (pathnames.length === 0) return null;
 
     // Determine correct home link based on role
-    const homeLink = user?.role === 'ADMIN'
+    const homeLink = user?.role === ROLES.ADMIN
         ? '/admin-dashboard'
-        : (user?.role === 'OPERATOR' ? '/operator-dashboard' : '/');
+        : (user?.role === ROLES.OPERATOR ? '/operator-dashboard' : '/');
 
     return (
         <nav aria-label="breadcrumb" className="mb-4">

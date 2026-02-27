@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import {
-    Lock, LogOut, CheckCircle2, AlertTriangle, Loader2,
+    CheckCircle2, AlertTriangle, Loader2,
     Shield, ArrowLeft
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -21,7 +21,7 @@ import Breadcrumbs from '../../components/common/Breadcrumbs';
 const VoterVerification = () => {
     const { t, i18n } = useTranslation();
     const navigate = useNavigate();
-    const { user, logout } = useAuth();
+    const { user } = useAuth();
 
     // Phase: 'aadhaar' | 'otp' | 'preview' | 'biometric' | 'done'
     const [phase, setPhase] = useState('aadhaar');
@@ -31,6 +31,7 @@ const VoterVerification = () => {
     const [aadhaar, setAadhaar] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [countdown, setCountdown] = useState(0);
+    const [errorCooldown, setErrorCooldown] = useState(0);
     const otpRefs = useRef([]);
 
     // Voter data from API
@@ -52,6 +53,13 @@ const VoterVerification = () => {
         const t = setInterval(() => setCountdown(p => p - 1), 1000);
         return () => clearInterval(t);
     }, [countdown]);
+
+    // Error Cooldown timer
+    useEffect(() => {
+        if (errorCooldown <= 0) return;
+        const t = setInterval(() => setErrorCooldown(p => p - 1), 1000);
+        return () => clearInterval(t);
+    }, [errorCooldown]);
 
     // ─── AADHAAR ───
     const formatAadhaar = (raw) => {
@@ -105,7 +113,14 @@ const VoterVerification = () => {
             });
             if (res.data.fraud_alert) {
                 setVoter(res.data.voter);
-                setFraudAlert({ type: 'already_voted', message: "This voter is already marked as 'Voted' in the central system. This attempt has been logged and flagged for admin review." });
+
+                let geoMsg = "";
+                if (res.data.voter?.original_location) {
+                    const loc = res.data.voter.original_location;
+                    geoMsg = ` (Original Registration: State: ${loc.state}, District: ${loc.district}, Tehsil: ${loc.tehsil}, Booth: ${loc.booth_id})`;
+                }
+
+                setFraudAlert({ type: 'already_voted', message: `This voter is already marked as 'Voted' in the central system.${geoMsg} This attempt has been logged and flagged for admin review.` });
                 setPhase('preview');
                 return;
             }
@@ -116,10 +131,19 @@ const VoterVerification = () => {
             const data = err.response?.data;
             if (data?.fraud_alert) {
                 setVoter(data.voter);
-                setFraudAlert({ type: 'already_voted', message: "This voter is already marked as 'Voted' in the central system. This attempt has been logged and flagged for admin review." });
+
+                let geoMsg = "";
+                if (data.voter?.original_location) {
+                    const loc = data.voter.original_location;
+                    geoMsg = ` (Original Registration: State: ${loc.state}, District: ${loc.district}, Tehsil: ${loc.tehsil}, Booth: ${loc.booth_id})`;
+                }
+
+                setFraudAlert({ type: 'already_voted', message: `This voter is already marked as 'Voted' in the central system.${geoMsg} This attempt has been logged and flagged for admin review.` });
                 setPhase('preview');
             } else {
                 toast.error(data?.error || 'Invalid OTP. Please retry.');
+                setErrorCooldown(30);
+                setOtp(['', '', '', '', '', '']);
             }
         } finally { setLoading(false); }
     };
@@ -186,7 +210,7 @@ const VoterVerification = () => {
                 </div>
                 {/* Body */}
                 <div className="p-4 bg-white">
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 items-center">
                         {/* Photo */}
                         {voter.photo_base64 ? (
                             <img
@@ -207,6 +231,10 @@ const VoterVerification = () => {
                             <p className="text-xs text-slate-700">{voter.date_of_birth}</p>
                             <p className="text-[10px] text-slate-400">{t('gender_hi')} / {t('gender')}</p>
                             <p className="text-xs text-slate-700">{voter.gender}</p>
+                            <div className="pt-1.5">
+                                <p className="text-[10px] text-slate-400 font-semibold mb-0.5 uppercase tracking-wider">{t('address_hi', 'पता')} / {t('address', 'Address')}</p>
+                                <p className="text-xs text-slate-700 font-medium leading-tight">{voter.full_address || voter.address || 'Address not available'}</p>
+                            </div>
                         </div>
                     </div>
                     {/* Aadhaar Number */}
@@ -320,27 +348,31 @@ const VoterVerification = () => {
                                                 value={d}
                                                 onChange={e => handleOtpChange(i, e.target.value)}
                                                 onKeyDown={e => handleOtpKeyDown(i, e)}
-                                                disabled={phase === 'preview'}
-                                                className="w-10 h-11 text-center text-lg font-bold border border-slate-300 rounded-lg focus:border-janmat-blue focus:ring-1 focus:ring-janmat-blue/30 outline-none transition-all disabled:bg-slate-50"
+                                                disabled={phase === 'preview' || errorCooldown > 0}
+                                                className={`w-10 h-11 text-center text-lg font-bold border rounded-lg focus:ring-1 outline-none transition-all disabled:bg-slate-50 ${errorCooldown > 0 ? 'border-red-300 text-red-500 bg-red-50' : 'border-slate-300 focus:border-janmat-blue focus:ring-janmat-blue/30'}`}
                                             />
                                         ))}
                                     </div>
                                     <div className="flex items-center gap-3 mb-3">
                                         <button
                                             onClick={handleVerifyOTP}
-                                            disabled={otp.join('').length !== 6 || loading || phase === 'preview'}
-                                            className="px-5 py-2 bg-janmat-blue text-white text-sm font-bold rounded-lg hover:bg-janmat-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                            disabled={otp.join('').length !== 6 || loading || phase === 'preview' || errorCooldown > 0}
+                                            className="px-5 py-2 bg-janmat-blue text-white text-sm font-bold rounded-lg hover:bg-janmat-hover disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2"
                                         >
                                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('btn_verify_otp')}
+                                            {errorCooldown > 0 && <span className="opacity-75">({errorCooldown}s)</span>}
                                         </button>
                                         <button
-                                            onClick={() => { setPhase('aadhaar'); setOtp(['', '', '', '', '', '']); setCountdown(0); }}
-                                            disabled={phase === 'preview'}
-                                            className="px-4 py-2 border border-slate-300 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-40 transition-all"
+                                            onClick={() => { setPhase('aadhaar'); setOtp(['', '', '', '', '', '']); setCountdown(0); setErrorCooldown(0); }}
+                                            disabled={phase === 'preview' || errorCooldown > 0}
+                                            className="px-4 py-2 border border-slate-300 text-slate-600 text-sm font-semibold rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                                         >
                                             {t('btn_resend')}
                                         </button>
                                     </div>
+                                    {errorCooldown > 0 && (
+                                        <p className="text-xs font-bold text-red-500 mb-2 animate-pulse">Too many failed attempts. Please wait {errorCooldown} seconds.</p>
+                                    )}
                                     <p className="text-[11px] text-slate-400 mb-1">
                                         {t('otp_sent_to')}{aadhaar.replace(/\s/g, '').slice(-4)}
                                         {countdown > 0 && <span className="ml-2 text-amber-600 font-mono">({Math.floor(countdown / 60)}:{(countdown % 60).toString().padStart(2, '0')})</span>}
@@ -402,12 +434,20 @@ const VoterVerification = () => {
 
                                     {/* Fraud alert */}
                                     {fraudAlert && (
-                                        <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-3 rounded-r-lg">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <AlertTriangle className="w-4 h-4 text-red-600" />
-                                                <p className="text-sm font-bold text-red-700">{t('fraud_alert_title')}</p>
+                                        <div className="mt-4">
+                                            <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-lg mb-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                                                    <p className="text-sm font-bold text-red-700">{t('fraud_alert_title')}</p>
+                                                </div>
+                                                <p className="text-xs text-red-600">{fraudAlert.message}</p>
                                             </div>
-                                            <p className="text-xs text-red-600">{fraudAlert.message}</p>
+                                            <button
+                                                onClick={handleReset}
+                                                className="w-full py-3 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-all shadow-sm"
+                                            >
+                                                Mark as Fraud & Start Over
+                                            </button>
                                         </div>
                                     )}
                                 </>
@@ -506,10 +546,10 @@ const VoterVerification = () => {
                                 )}
                                 {scanState === 'duplicate' && (
                                     <button
-                                        onClick={() => navigate('/operator-dashboard')}
+                                        onClick={handleReset}
                                         className="w-full py-3 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-all"
                                     >
-                                        {t('btn_return_dashboard')}
+                                        Mark as Fraud & Start Over
                                     </button>
                                 )}
                             </div>
@@ -534,9 +574,20 @@ const VoterVerification = () => {
                             {scanState === 'duplicate' && duplicateInfo && (
                                 <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-3 rounded-r-lg">
                                     <p className="text-sm font-bold text-red-700 mb-1">{t('duplicate_biometric_alert')}</p>
-                                    <p className="text-xs text-red-600">
+                                    <p className="text-xs text-red-600 mb-2">
                                         {t('duplicate_biometric_desc')}
                                     </p>
+                                    {duplicateInfo.original_location && (
+                                        <div className="bg-white/60 p-2 rounded text-[10px] text-red-800 border border-red-200">
+                                            <p className="font-semibold mb-1 border-b border-red-200 pb-0.5">Original Registration Found:</p>
+                                            <div className="grid grid-cols-2 gap-1">
+                                                <p><span className="text-red-600 font-medium">State:</span> {duplicateInfo.original_location.state}</p>
+                                                <p><span className="text-red-600 font-medium">District:</span> {duplicateInfo.original_location.district}</p>
+                                                <p><span className="text-red-600 font-medium">Tehsil:</span> {duplicateInfo.original_location.tehsil}</p>
+                                                <p><span className="text-red-600 font-medium">Booth:</span> {duplicateInfo.original_location.booth_id}</p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

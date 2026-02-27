@@ -1,3 +1,4 @@
+from accounts.constants import SystemRoles
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -40,18 +41,23 @@ def fraud_logs(request):
             
             print(f"DEBUG: Filtering Fraud Logs for Admin ID: {admin_id}")
 
+        # 1. Search (Aadhaar, Booth)
+        search_query = request.GET.get('search', '').strip()
+        is_aadhaar_search = search_query and search_query.isdigit() and len(search_query) >= 4
+
         # Base Query
         if is_superuser:
             # SuperAdmin sees ALL logs
             queryset = FraudLog.objects.all().order_by('-flagged_at')
         else:
-            # Admin sees only their tenant's logs
-            queryset = FraudLog.objects.filter(admin_id=admin_id).order_by('-flagged_at')
+            # Admin sees only their tenant's logs UNLESS they are explicitly searching (Global Aadhaar Search)
+            if search_query and is_aadhaar_search:
+                queryset = FraudLog.objects.all().order_by('-flagged_at')
+            else:
+                queryset = FraudLog.objects.filter(admin_id=admin_id).order_by('-flagged_at')
             
         print(f"DEBUG: Query count: {queryset.count()}")
 
-        # 1. Search (Aadhaar, Booth)
-        search_query = request.GET.get('search', '').strip()
         if search_query:
             queryset = queryset.filter(
                 Q(aadhaar_number__icontains=search_query) | 
@@ -202,8 +208,8 @@ def fraud_log_detail(request, log_id):
                 return Response({'error': 'Fraud log not found'}, status=404)
         else:
             try:
-                # Ensure the log belongs to the requesting admin
-                log = FraudLog.objects.get(id=log_id, admin_id=request_admin_id)
+                # Allow access by UUID for global searching capabilities.
+                log = FraudLog.objects.get(id=log_id)
             except FraudLog.DoesNotExist:
                 return Response({'error': 'Fraud log not found or access denied'}, status=404)
             
@@ -213,26 +219,60 @@ def fraud_log_detail(request, log_id):
             log.save()
             
         # 4. Fetch Real Voter Details
-        # We use log.admin_id to ensure we find the voter record belonging to the SAME tenant as the log.
         voter_details = None
         if log.aadhaar_number:
             try:
                 from verification.models import Voter
-                # Use log.admin.id (or log.admin_id) to find the voter in the correct scope
-                voter = Voter.objects.filter(aadhaar_number=log.aadhaar_number, admin_id=log.admin_id).first()
+                from accounts.models import Admin, Operator
+                voter = Voter.objects.filter(aadhaar_number=log.aadhaar_number).first()
                 if voter:
+                    # Trace geographic origin
+                    orig_state, orig_district, orig_tehsil, orig_booth = "", "", "", ""
+                    try:
+                        orig_admin = Admin.objects.get(id=voter.admin_id)
+                        orig_state = orig_admin.state
+                        orig_district = orig_admin.district
+                        orig_tehsil = orig_admin.tehsil
+                        if voter.operator_id:
+                            orig_op = Operator.objects.get(id=voter.operator_id)
+                            orig_booth = orig_op.booth_id
+                    except Exception as geo_e:
+                        logger.warning(f"Could not footprint geo-origin: {geo_e}")
+
                     voter_details = {
                         'full_name': voter.full_name,
                         'full_name_hindi': voter.full_name_hindi,
                         'dob': voter.date_of_birth.strftime('%d/%m/%Y') if voter.date_of_birth else '',
                         'gender': voter.gender,
-                        'address': voter.full_address,
+                        'full_address': voter.full_address,
                         'photo': voter.photo_base64 or voter.photo_url or '',
-                        'mobile_number': voter.mobile_number
+                        'mobile_number': voter.mobile_number,
+                        'original_location': {
+                            'state': orig_state,
+                            'district': orig_district,
+                            'tehsil': orig_tehsil,
+                            'booth_id': orig_booth
+                        }
                     }
             except Exception as v_err:
                 logger.warning(f"Could not fetch voter details: {v_err}")
                 voter_details = None
+
+        # 5. Fetch Fraud History
+        fraud_history = []
+        if log.aadhaar_number:
+            try:
+                history_logs = FraudLog.objects.filter(aadhaar_number=log.aadhaar_number).exclude(id=log.id).order_by('-flagged_at')
+                for hl in history_logs:
+                    fraud_history.append({
+                        'id': str(hl.id),
+                        'fraud_type': hl.fraud_type,
+                        'flagged_at': hl.flagged_at.isoformat(),
+                        'booth_number': hl.booth_number,
+                        'reviewed': hl.reviewed
+                    })
+            except Exception as h_err:
+                logger.warning(f"Could not fetch fraud history: {h_err}")
 
         data = {
             'id': str(log.id),
@@ -244,7 +284,8 @@ def fraud_log_detail(request, log_id):
             'reviewed': log.reviewed,
             'details': log.details,
             'admin_notes': log.admin_notes,
-            'voter': voter_details 
+            'voter': voter_details,
+            'fraud_history': fraud_history
         }
         
         return Response(data)
@@ -259,10 +300,12 @@ def fraud_log_detail(request, log_id):
 def unread_fraud_count(request):
     """Get count of unreviewed fraud logs for notification badge"""
     try:
+        from accounts.constants import SystemRoles
         is_superuser = False
         admin_id = None
         
-        if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
+        user_role = getattr(request.user, 'role', None)
+        if user_role == SystemRoles.SUPERUSER or getattr(request.user, 'is_superuser', False):
             is_superuser = True
             
         if not is_superuser:
@@ -291,10 +334,12 @@ def unread_fraud_count(request):
 def mark_all_reviewed(request):
     """Mark all unreviewed fraud logs as reviewed for the current admin"""
     try:
+        from accounts.constants import SystemRoles
         is_superuser = False
         admin_id = None
         
-        if hasattr(request.user, 'is_superuser') and request.user.is_superuser:
+        user_role = getattr(request.user, 'role', None)
+        if user_role == SystemRoles.SUPERUSER or getattr(request.user, 'is_superuser', False):
             is_superuser = True
             
         if not is_superuser:
@@ -325,7 +370,7 @@ def operator_report_fraud(request):
     user = request.user
     role = getattr(user, 'role', '')
     
-    if role != 'OPERATOR':
+    if role != SystemRoles.OPERATOR:
         return Response({'error': 'Only operators can report incidents'}, status=403)
     
     if not user.created_by:

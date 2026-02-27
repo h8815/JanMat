@@ -12,6 +12,7 @@ import { AuthProvider } from './context/AuthContext';
 
 import { ThemeProvider } from './context/ThemeContext';
 import SessionMonitor from './components/common/SessionMonitor';
+import { ROLES } from './constants/roles';
 
 function App() {
   return (
@@ -26,7 +27,7 @@ function App() {
             <Route path="/setup-password" element={<ForcePasswordChange />} />
 
             {/* Protected Routes */}
-            <Route element={<PrivateRoute allowedRoles={['ADMIN']} />}>
+            <Route element={<PrivateRoute allowedRoles={[ROLES.ADMIN, ROLES.SUPERUSER]} />}>
               <Route path="/admin-dashboard" element={
                 <NotificationProvider>
                   <AdminDashboard />
@@ -34,7 +35,7 @@ function App() {
               } />
             </Route>
 
-            <Route element={<PrivateRoute allowedRoles={['OPERATOR']} />}>
+            <Route element={<PrivateRoute allowedRoles={[ROLES.OPERATOR]} />}>
               <Route path="/operator-dashboard" element={<OperatorDashboard />} />
               <Route path="/operator/verify" element={<VoterVerification />} />
               <Route path="/operator/report-fraud" element={<FraudReport />} />

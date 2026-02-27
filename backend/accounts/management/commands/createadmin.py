@@ -31,6 +31,7 @@ class Command(BaseCommand):
             return
 
         name = input("Name (optional): ").strip()
+        phone_number = input("Phone Number (optional): ").strip()
         
         password = getpass.getpass("Password: ")
         while not password:
@@ -47,6 +48,7 @@ class Command(BaseCommand):
                 email=email,
                 password=make_password(password),
                 name=name,
+                phone_number=phone_number,
                 created_by=super_admin,
                 is_active=True
             )

@@ -9,6 +9,15 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write("Creating a new SuperAdmin...")
         
+        username = input("Username: ").strip()
+        while not username:
+            self.stdout.write(self.style.ERROR("Username cannot be empty."))
+            username = input("Username: ").strip()
+            
+        if SuperAdmin.objects.filter(username=username).exists():
+            self.stdout.write(self.style.ERROR(f"Error: SuperAdmin with username '{username}' already exists."))
+            return
+            
         email = input("Email: ").strip()
         while not email:
             self.stdout.write(self.style.ERROR("Email cannot be empty."))
@@ -19,6 +28,7 @@ class Command(BaseCommand):
             return
 
         name = input("Name (optional): ").strip()
+        phone_number = input("Phone Number (optional): ").strip()
         
         password = getpass.getpass("Password: ")
         while not password:
@@ -32,11 +42,13 @@ class Command(BaseCommand):
 
         try:
             SuperAdmin.objects.create(
+                username=username,
                 email=email,
                 password=make_password(password),
                 name=name,
+                phone_number=phone_number,
                 is_active=True
             )
-            self.stdout.write(self.style.SUCCESS(f"SuperAdmin '{email}' created successfully."))
+            self.stdout.write(self.style.SUCCESS(f"SuperAdmin '{username}' created successfully."))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"Error creating user: {e}"))

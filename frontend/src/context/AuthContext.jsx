@@ -1,6 +1,9 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 import api from '../api/axios';
+import { ROLES } from '../constants/roles';
 
 const AuthContext = createContext();
 
@@ -9,30 +12,49 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
 
     const fetchUser = async () => {
         try {
             const response = await api.get('/auth/current-user/');
-            // response.data = { role: '...', user: { ... }, admin_id: ... }
-            // We want the user object, potentially with role added if missing
             const userData = response.data.user;
             if (response.data.role) userData.role = response.data.role;
             setUser(userData);
         } catch (error) {
             console.error("Failed to fetch user profile", error);
-            logout();
+            // This could eventually trigger unauthorized if api fails
         }
     };
+
+    const logout = useCallback(() => {
+        const role = user?.role;
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        setUser(null);
+        if (role === ROLES.OPERATOR) {
+            navigate('/login?role=operator');
+        } else {
+            navigate('/login?role=admin');
+        }
+    }, [user, navigate]);
+
+    useEffect(() => {
+        const handleUnauthorized = () => {
+            console.warn('Unauthorized event caught. Logging out.');
+            logout();
+        };
+
+        window.addEventListener('unauthorized', handleUnauthorized);
+        return () => window.removeEventListener('unauthorized', handleUnauthorized);
+    }, [logout]);
 
     const initAuth = async () => {
         const token = localStorage.getItem('access_token');
         if (token) {
             try {
-                const decoded = jwtDecode(token);
-                // Allow axios interceptor to handle 401/refresh if token is expired
+                jwtDecode(token);
                 await fetchUser();
             } catch (e) {
-                // If token is malformed, then logout
                 console.error("Invalid token found", e);
                 logout();
             }
@@ -44,53 +66,35 @@ export const AuthProvider = ({ children }) => {
         initAuth();
     }, []);
 
-    const login = async (email, password, endpoint, expectedRole) => {
+    const login = async (email, password, endpoint) => {
         try {
-            // Send email as username since backend serializers now expect 'username' for both Admin and Operator
             const response = await api.post(endpoint, { username: email, password });
 
-            // Catch the forced password change scenario
             if (response.data.must_change_password) {
                 return { requiresPasswordReset: true, username: email };
             }
 
-            const { access, refresh, user: userData } = response.data;
+            const { access, refresh, user: userData, role: responseRole } = response.data;
+            const role = responseRole || ROLES.UNKNOWN;
 
-            const decoded = jwtDecode(access);
-            const role = decoded.role || 'UNKNOWN';
-
-            if (role === 'SUPERUSER') {
+            if (role === ROLES.SUPERUSER) {
                 throw new Error('Invalid role found in token');
             }
 
             localStorage.setItem('access_token', access);
             localStorage.setItem('refresh_token', refresh);
 
-            // Use the user data from response which typically contains name
             if (userData) {
                 setUser(userData);
             } else {
-                // Fallback if backend doesn't send user object (though it should)
-                setUser({ id: decoded.user_id, role, ...decoded });
-                fetchUser(); // Fetch in background to update details
+                setUser({ id: jwtDecode(access).user_id, role, ...jwtDecode(access) });
+                fetchUser();
             }
 
             return true;
         } catch (error) {
             console.error("Login failed", error);
             throw error;
-        }
-    };
-
-    const logout = () => {
-        const role = user?.role;
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        setUser(null);
-        if (role === 'OPERATOR') {
-            window.location.href = '/login?role=operator';
-        } else {
-            window.location.href = '/login?role=admin';
         }
     };
 

@@ -1,6 +1,0 @@
-[2026-02-23 18:20:23 +0000] [21] [INFO] Starting gunicorn 21.2.0
-[2026-02-23 18:20:23 +0000] [21] [INFO] Listening at: http://0.0.0.0:8000 (21)
-[2026-02-23 18:20:23 +0000] [21] [INFO] Using worker: sync
-[2026-02-23 18:20:23 +0000] [22] [INFO] Booting worker with pid: 22
-[2026-02-23 18:20:23 +0000] [23] [INFO] Booting worker with pid: 23
-[2026-02-23 18:20:23 +0000] [24] [INFO] Booting worker with pid: 24

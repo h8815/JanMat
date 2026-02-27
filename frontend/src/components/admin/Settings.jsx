@@ -3,6 +3,8 @@ import axios from '../../api/axios';
 import { Lock, Save, User, Edit2, X, AlertCircle, CheckCircle, Moon, Sun, Shield, Clock, Smartphone, Monitor } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { ROLES } from '../../constants/roles';
+import { getFullStateName } from '../../utils/locationHelper';
 
 const Settings = ({ user }) => {
     const { t } = useTranslation();
@@ -18,21 +20,12 @@ const Settings = ({ user }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [profileData, setProfileData] = useState({
         name: '',
+        username: '',
         email: ''
     });
 
     const [message, setMessage] = useState({ type: '', text: '' });
     const [loading, setLoading] = useState(false);
-
-    // Security Features State
-    const [is2FAEnabled, setIs2FAEnabled] = useState(false);
-
-    // Mock Login Activity Data
-    const loginHistory = [
-        { id: 1, device: "Chrome on Windows", ip: "192.168.1.45", location: "New Delhi, India", time: "2 mins ago", current: true, type: 'desktop' },
-        { id: 2, device: "Safari on iPhone", ip: "103.44.2.19", location: "Mumbai, India", time: "2 days ago", current: false, type: 'mobile' },
-        { id: 3, device: "Chrome on macOS", ip: "45.112.55.1", location: "New Delhi, India", time: "1 week ago", current: false, type: 'desktop' }
-    ];
 
     const checkPasswordStrength = (pwd) => {
         let score = 0;
@@ -59,6 +52,7 @@ const Settings = ({ user }) => {
         if (user) {
             setProfileData({
                 name: user.name || '',
+                username: user.username || '',
                 email: user.email || ''
             });
         }
@@ -118,7 +112,7 @@ const Settings = ({ user }) => {
         setLoading(true);
 
         try {
-            const response = await axios.put('/auth/admin/update-profile/', profileData);
+            await axios.put('/auth/admin/update-profile/', profileData);
             setMessage({ type: 'success', text: 'Profile updated successfully' });
             setIsEditing(false);
             // Ideally update global context here, but local state update is good for now
@@ -190,6 +184,18 @@ const Settings = ({ user }) => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">
+                                    {t('label_username', 'Username')}
+                                </label>
+                                <input
+                                    type="text"
+                                    name="username"
+                                    disabled
+                                    value={profileData.username}
+                                    className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-janmat-blue focus:border-transparent outline-none bg-slate-100 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-400 cursor-not-allowed"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">
                                     {t('label_email_unique')}
                                 </label>
                                 <input
@@ -220,23 +226,45 @@ const Settings = ({ user }) => {
                             </div>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_username', 'Username')}</label>
+                            <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-slate-700 font-mono dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300">
+                                {profileData.username || 'N/A'}
+                            </div>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_email')}</label>
                             <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-slate-700 font-mono dark:bg-slate-700 dark:border-slate-600 dark:text-slate-300">
                                 {profileData.email}
                             </div>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_admin_id')}</label>
-                            <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-slate-500 font-mono text-xs dark:bg-slate-700 dark:border-slate-600 dark:text-slate-400">
-                                {user?.id || 'N/A'}
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_role')}</label>
+                            <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">{t('label_role', 'System Role')}</label>
                             <div className="mt-1 p-3 bg-slate-50 rounded border border-slate-200 text-janmat-blue font-bold tracking-wider dark:bg-slate-700 dark:border-slate-600 dark:text-janmat-light">
-                                {user?.role || 'ADMIN'}
+                                {user?.role || ROLES.ADMIN}
                             </div>
                         </div>
+                        {user?.role === ROLES.ADMIN && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Jurisdiction State</label>
+                                    <div className="mt-1 p-3 border border-slate-200 rounded bg-slate-50 text-slate-700 font-semibold dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                        {getFullStateName(user?.state)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Jurisdiction District</label>
+                                    <div className="mt-1 p-3 border border-slate-200 rounded bg-slate-50 text-slate-700 font-semibold dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                        {user?.district || 'N/A'}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-500 dark:text-slate-400">Jurisdiction Tehsil</label>
+                                    <div className="mt-1 p-3 border border-slate-200 rounded bg-slate-50 text-slate-700 font-semibold dark:bg-slate-700 dark:border-slate-600 dark:text-white">
+                                        {user?.tehsil || 'N/A'}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
             </div>
@@ -325,39 +353,6 @@ const Settings = ({ user }) => {
                             className={`${theme === 'dark' ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
                         />
                     </button>
-                </div>
-            </div>
-
-            {/* Login Activity */}
-            <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6 dark:bg-slate-800 dark:border-slate-700">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2 dark:text-white">
-                    <Clock className="w-5 h-5 text-janmat-blue dark:text-janmat-light" /> {t('login_activity_title') || 'Login Activity'}
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    {t('login_activity_desc') || 'Recent devices that have accessed your account. If you see an unfamiliar device, change your password.'}
-                </p>
-                <div className="divide-y divide-slate-200 dark:divide-slate-700 pt-2">
-                    {loginHistory.map((log) => (
-                        <div key={log.id} className="py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                            <div className="h-10 w-10 shrink-0 bg-slate-100 rounded-lg flex items-center justify-center dark:bg-slate-700">
-                                {log.type === 'desktop' ? <Monitor className="w-5 h-5 text-slate-500 dark:text-slate-400" /> : <Smartphone className="w-5 h-5 text-slate-500 dark:text-slate-400" />}
-                            </div>
-                            <div className="flex-1">
-                                <p className="font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                                    {log.device}
-                                    {log.current && <span className="text-[10px] uppercase font-bold text-janmat-blue bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 dark:bg-blue-900/40 dark:border-blue-800 dark:text-blue-300">{t('this_device')}</span>}
-                                </p>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                                    <span>{log.ip}</span>
-                                    <span className="hidden sm:inline">&bull;</span>
-                                    <span>{log.location}</span>
-                                </p>
-                            </div>
-                            <div className="text-sm text-slate-400 font-medium whitespace-nowrap dark:text-slate-500">
-                                {log.time}
-                            </div>
-                        </div>
-                    ))}
                 </div>
             </div>
         </div>

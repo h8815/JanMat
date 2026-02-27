@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Home, Users, AlertOctagon, FileText, Settings as SettingsIcon, LogOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { getFullStateName } from '../../utils/locationHelper';
 
 const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
     const { t } = useTranslation();
@@ -129,11 +130,18 @@ const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCol
                         </div>
 
                         {/* User Text: Hidden on Desktop if collapsed */}
-                        <div className={`flex-1 overflow-hidden transition-opacity duration-200 min-w-0 ${isCollapsed ? 'md:hidden' : ''}`}>
+                        <div className={`flex-1 overflow-hidden transition-opacity duration-200 min-w-0 flex flex-col justify-center ${isCollapsed ? 'md:hidden' : ''}`}>
                             <p className="text-sm font-bold text-slate-800 truncate dark:text-slate-200">{user?.name || user?.email || 'Admin'}</p>
-                            <p className="text-[10px] text-slate-500 truncate flex items-center gap-1 dark:text-slate-400">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block flex-shrink-0"></span>
-                                <span className="truncate">Online</span>
+                            {user?.role?.toUpperCase() === 'ADMIN' && (user?.state || user?.district || user?.tehsil) && (
+                                <div className="text-[10px] text-slate-400 mt-1 space-y-0.5 dark:text-slate-500 leading-tight pr-1">
+                                    {user?.state && <p className="truncate" title={getFullStateName(user.state)}><span className="font-semibold text-slate-500 dark:text-slate-400">State:</span> {getFullStateName(user.state)}</p>}
+                                    {user?.district && <p className="truncate" title={user.district}><span className="font-semibold text-slate-500 dark:text-slate-400">District:</span> {user.district}</p>}
+                                    {user?.tehsil && <p className="truncate" title={user.tehsil}><span className="font-semibold text-slate-500 dark:text-slate-400">Tehsil:</span> {user.tehsil}</p>}
+                                </div>
+                            )}
+                            <p className="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1.5 dark:text-slate-400">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block flex-shrink-0 shadow-[0_0_4px_rgba(34,197,94,0.5)]"></span>
+                                <span className="truncate font-medium">Online</span>
                             </p>
                         </div>
 

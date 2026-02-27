@@ -102,13 +102,19 @@ class AadhaarService:
                 AadhaarService.SEND_OTP_URL,
                 json=payload,
                 headers=headers,
-                timeout=10
+                timeout=30
             )
             
             response_data = response.json()
             
             if response.status_code == 200 and response_data.get('data'):
-                reference_id = response_data['data'].get('reference_id')
+                data_dict = response_data['data']
+                
+                # Check if Sandbox returned a rate limiting message instead of a reference ID
+                if 'message' in data_dict and 'reference_id' not in data_dict:
+                    raise Exception(data_dict['message'])
+                    
+                reference_id = data_dict.get('reference_id')
                 
                 if not reference_id:
                     raise Exception("No reference_id in API response")
@@ -195,9 +201,9 @@ class AadhaarService:
                 dob_day = (int(aadhaar_number[-2]) % 28) + 1
                 
                 voter, created = Voter.objects.get_or_create(
-                    admin_id=admin_id,
                     aadhaar_number=aadhaar_number,
                     defaults={
+                        'admin_id': admin_id,
                         'full_name': name_en,
                         'full_name_hindi': name_hindi,
                         'date_of_birth': f'{dob_year}-{dob_month:02d}-{dob_day:02d}',
@@ -249,7 +255,7 @@ class AadhaarService:
                 AadhaarService.VERIFY_OTP_URL,
                 json=payload,
                 headers=headers,
-                timeout=10
+                timeout=30
             )
             
             response_data = response.json()
@@ -260,17 +266,48 @@ class AadhaarService:
                 
                 data = response_data['data']
                 
+                # Compose full address from nested address dict
+                addr = data.get('address', {})
+                address_parts = [
+                    addr.get('house'),
+                    addr.get('street'),
+                    addr.get('loc'),
+                    addr.get('vtc'),
+                    addr.get('dist'),
+                    addr.get('state'),
+                    addr.get('pc')
+                ]
+                # Filter out None and empty strings
+                full_address_str = ", ".join([p for p in address_parts if p])
+                
+                # The Sandbox sometimes returns 'photo' or places it inside 'photo_link' etc.
+                photo_b64 = data.get('photo_link', '') or data.get('photo', '')
+                
+                # Parse Date of Birth (Sandbox sends DD-MM-YYYY, PostgreSQL needs YYYY-MM-DD)
+                raw_dob = data.get('date_of_birth')
+                formatted_dob = timezone.now().date()
+                if raw_dob:
+                    from datetime import datetime
+                    try:
+                        formatted_dob = datetime.strptime(raw_dob, "%d-%m-%Y").strftime("%Y-%m-%d")
+                    except ValueError:
+                        try:
+                            # Fallback if it's already YYYY-MM-DD
+                            formatted_dob = datetime.strptime(raw_dob, "%Y-%m-%d").strftime("%Y-%m-%d")
+                        except ValueError:
+                            pass
+                
                 voter, created = Voter.objects.get_or_create(
-                    admin_id=admin_id,
                     aadhaar_number=aadhaar_number,
                     defaults={
+                        'admin_id': admin_id,
                         'full_name': data.get('name', ''),
                         'full_name_hindi': data.get('name_hindi', ''),
-                        'date_of_birth': data.get('date_of_birth', timezone.now().date()),
+                        'date_of_birth': formatted_dob,
                         'gender': data.get('gender', 'Other'),
                         'mobile_number': data.get('mobile_number', ''),
-                        'full_address': data.get('full_address', ''),
-                        'photo_base64': data.get('photo', ''),
+                        'full_address': full_address_str or data.get('full_address', ''),
+                        'photo_base64': photo_b64,
                     }
                 )
                 
@@ -291,7 +328,8 @@ class AadhaarService:
                     }
                 }
             else:
-                error_msg = response_data.get('message', 'Invalid OTP')
+                logger.warning(f"Sandbox Verification Rejected: {response_data}")
+                error_msg = response_data.get('data', {}).get('message', 'Invalid OTP')
                 return {'success': False, 'error': error_msg}
                 
         except Exception as e:
@@ -332,17 +370,34 @@ class BiometricService:
     def check_duplicate(template_hash, admin_id):
         """Check for duplicate biometric within admin scope"""
         try:
-            # Search for existing template under this admin only
+            # Search for existing template across the entire system globally
             existing_template = BiometricTemplate.objects.filter(
-                admin_id=admin_id,
                 template_hash=template_hash
             ).first()
             
             if existing_template:
                 voter = Voter.objects.filter(id=existing_template.voter_id).first()
                 voter_name = voter.full_name if voter else "Unknown"
-                aadhaar_masked = f"XXXX-XXXX-{voter.aadhaar_number[-4:]}" if voter else "XXXX-XXXX-XXXX"
                 
+                aadhaar_masked = f"XXXX-XXXX-{voter.aadhaar_number[-4:]}" if voter else ""
+                
+                # Trace geographic origin
+                state, district, tehsil, booth = "", "", "", ""
+                try:
+                    from accounts.models import Admin, Operator
+                    orig_admin = Admin.objects.get(id=existing_template.admin_id)
+                    state = orig_admin.state
+                    district = orig_admin.district
+                    tehsil = orig_admin.tehsil
+                    if existing_template.operator_id:
+                        orig_operator = Operator.objects.get(id=existing_template.operator_id)
+                        booth = orig_operator.booth_id
+                    elif hasattr(voter, 'operator_id') and voter.operator_id:
+                        orig_operator = Operator.objects.get(id=voter.operator_id)
+                        booth = orig_operator.booth_id
+                except Exception as geo_err:
+                    logger.warning(f"Failed to fetch geographic origin for duplicate {template_hash}: {geo_err}")
+
                 logger.warning(f"Duplicate biometric detected under admin {admin_id}")
                 return {
                     'is_duplicate': True,
@@ -350,7 +405,13 @@ class BiometricService:
                         'id': str(existing_template.voter_id),
                         'name': voter_name,
                         'aadhaar_masked': aadhaar_masked,
-                        'verified_at': existing_template.created_at.isoformat()
+                        'verified_at': existing_template.created_at.isoformat(),
+                        'original_location': {
+                            'state': state,
+                            'district': district,
+                            'tehsil': tehsil,
+                            'booth_id': booth
+                        }
                     }
                 }
             
@@ -369,7 +430,7 @@ class BiometricService:
                 voter = Voter.objects.get(id=voter_id, admin_id=admin_id)
                 
                 # Create biometric template
-                template = BiometricTemplate.objects.create(
+                BiometricTemplate.objects.create(
                     admin_id=admin_id,
                     voter_id=voter.id,
                     template_hash=template_hash,

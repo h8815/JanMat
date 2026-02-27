@@ -1,3 +1,4 @@
+from accounts.constants import SystemRoles
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import InvalidToken, AuthenticationFailed
 from django.contrib.auth.backends import ModelBackend
@@ -24,22 +25,22 @@ class JanmatTokenAuthentication(JWTAuthentication):
         user = None
         
         try:
-            if role == 'SUPERUSER':
+            if role == SystemRoles.SUPERUSER:
                 user = SuperAdmin.objects.get(id=user_id)
-            elif role == 'ADMIN':
+            elif role == SystemRoles.ADMIN:
                 user = Admin.objects.get(id=user_id)
-            elif role == 'OPERATOR':
+            elif role == SystemRoles.OPERATOR:
                 user = Operator.objects.get(id=user_id)
             else:
                 # Fallback: try one by one if role is missing (legacy)
                 if not user:
-                    try: user = SuperAdmin.objects.get(id=user_id); role='SUPERUSER'
+                    try: user = SuperAdmin.objects.get(id=user_id); role=SystemRoles.SUPERUSER
                     except SuperAdmin.DoesNotExist: pass
                 if not user:
-                    try: user = Admin.objects.get(id=user_id); role='ADMIN'
+                    try: user = Admin.objects.get(id=user_id); role=SystemRoles.ADMIN
                     except Admin.DoesNotExist: pass
                 if not user:
-                    try: user = Operator.objects.get(id=user_id); role='OPERATOR'
+                    try: user = Operator.objects.get(id=user_id); role=SystemRoles.OPERATOR
                     except Operator.DoesNotExist: pass
             
             if not user:
@@ -66,11 +67,11 @@ class JanmatModelBackend(ModelBackend):
         
         try:
             # Check SuperAdmin table
-            super_admin = SuperAdmin.objects.get(email=username)
+            super_admin = SuperAdmin.objects.get(username__iexact=username)
             if check_password(password, super_admin.password) and super_admin.is_active:
-                # Found valid SuperAdmin. Now get/create bridging JanmatAuthUser
+                # Found valid SuperAdmin. Now get/create bridging JanmatAuthUser using their real email
                 User = get_user_model()
-                auth_user, created = User.objects.get_or_create(email=username)
+                auth_user, created = User.objects.get_or_create(email=super_admin.email)
                 
                 # Sync permissions
                 if not auth_user.is_staff or not auth_user.is_superuser:

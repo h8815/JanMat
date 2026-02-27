@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../../api/axios';
-import { Plus, Search, RefreshCw, Eye, EyeOff, ShieldAlert, Edit2, Trash2, X, CheckSquare, Square, Users, ArrowLeftRight, Power } from 'lucide-react';
+import { Plus, Search, RefreshCw, Eye, EyeOff, ShieldAlert, Edit2, Trash2, X, CheckSquare, Square, Users, ArrowLeftRight, Power, Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import SkeletonLoader from '../common/SkeletonLoader';
 import EmptyState from '../common/EmptyState';
@@ -49,8 +49,8 @@ const OperatorList = () => {
     const handleBulkAction = async (action) => {
         setConfirmModal({
             isOpen: true,
-            title: t('confirm_bulk_action_title', { action: action.charAt(0).toUpperCase() + action.slice(1) }) || `Confirm ${action.charAt(0).toUpperCase() + action.slice(1)}`,
-            message: t('confirm_bulk_action_desc', { count: selectedIds.size }) || `Are you sure you want to ${action} ${selectedIds.size} operators?`,
+            title: t('confirm_bulk_action_title', { action: action.charAt(0).toUpperCase() + action.slice(1).replace('_', ' ') }) || `Confirm ${action.charAt(0).toUpperCase() + action.slice(1).replace('_', ' ')}`,
+            message: t('confirm_bulk_action_desc', { count: selectedIds.size, action: action.replace('_', ' ') }) || `Are you sure you want to ${action.replace('_', ' ')} ${selectedIds.size} operators?`,
             isDanger: action === 'delete',
             onConfirm: async () => {
                 try {
@@ -97,7 +97,7 @@ const OperatorList = () => {
                 try {
                     await axios.delete(`/auth/admin/operators/${id}/`);
                     setOperators(operators.filter(op => op.id !== id));
-                } catch (error) {
+                } catch {
                     alert('Failed to delete operator');
                 }
             }
@@ -110,7 +110,6 @@ const OperatorList = () => {
     };
 
     const handleToggleStatus = (op) => {
-        const action = op.is_active ? 'deactivate' : 'activate';
         setConfirmModal({
             isOpen: true,
             title: op.is_active
@@ -130,6 +129,24 @@ const OperatorList = () => {
                 } catch (error) {
                     console.error('Toggle status failed', error);
                     alert('Failed to update operator status. Please try again.');
+                }
+            }
+        });
+    };
+
+    const handleSendCredentials = (op) => {
+        setConfirmModal({
+            isOpen: true,
+            title: t('confirm_send_email_title') || 'Send Credentials',
+            message: t('confirm_send_email_desc', { email: op.email }) || `Are you sure you want to generate a new password and email it to ${op.email}?`,
+            isDanger: false,
+            onConfirm: async () => {
+                try {
+                    await axios.post(`/auth/admin/operators/${op.id}/send-credentials/`);
+                    alert(t('email_sent_successfully') || 'Credentials sent successfully!');
+                } catch (error) {
+                    console.error('Send credentials failed', error);
+                    alert(t('email_send_failed') || 'Failed to send credentials.');
                 }
             }
         });
@@ -232,6 +249,12 @@ const OperatorList = () => {
                             className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-sm font-medium transition-colors"
                         >
                             {t('btn_deactivate')}
+                        </button>
+                        <button
+                            onClick={() => handleBulkAction('send_credentials')}
+                            className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-sm font-medium transition-colors"
+                        >
+                            {t('btn_send_credentials')}
                         </button>
                         <div className="w-px bg-white/30 mx-1"></div>
                         <button
@@ -407,6 +430,13 @@ const OperatorList = () => {
                                                 <Power className="w-4 h-4" />
                                             </button>
                                             <button
+                                                onClick={() => handleSendCredentials(op)}
+                                                className="p-1 text-slate-400 hover:text-janmat-blue transition-colors dark:hover:text-blue-400"
+                                                title={t('btn_send_credentials') || 'Send Credentials Email'}
+                                            >
+                                                <Mail className="w-4 h-4" />
+                                            </button>
+                                            <button
                                                 onClick={() => handleEdit(op)}
                                                 className="p-1 text-slate-400 hover:text-janmat-blue transition-colors dark:hover:text-janmat-light"
                                                 title="Edit"
@@ -450,9 +480,7 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
     const { t } = useTranslation();
     const [formData, setFormData] = useState({
         full_name: '',
-        username: '',
-        email: '',
-        booth_id: ''
+        email: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -505,19 +533,11 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Username</label>
-                        <input type="text" name="username" value={formData.username} onChange={handleChange} className="w-full p-3 sm:p-2 min-h-[44px] border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
-                    </div>
-
-                    <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">{t('label_email')}</label>
                         <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-3 sm:p-2 min-h-[44px] border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">{t('label_booth_id')}</label>
-                        <input name="booth_id" value={formData.booth_id} onChange={handleChange} className="w-full p-3 sm:p-2 min-h-[44px] border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required placeholder={t('placeholder_booth_id')} />
-                    </div>
+
 
                     <div className="pt-4 pb-8 sm:pb-0 flex flex-col sm:flex-row justify-end gap-3">
                         <button type="button" onClick={onClose} className="px-4 py-3 sm:py-2 min-h-[44px] text-slate-600 hover:bg-slate-100 rounded-lg font-medium border border-slate-200 sm:border-transparent dark:text-slate-300 dark:hover:bg-slate-700">{t('cancel')}</button>

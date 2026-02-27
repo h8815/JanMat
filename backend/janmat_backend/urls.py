@@ -6,7 +6,7 @@ from .views import custom_404_view
 handler404 = 'janmat_backend.views.custom_404_view'
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('janmat-superadmin/', admin.site.urls),
     path('api/health/', health_check, name='health_check'),
     path('api/auth/', include('accounts.urls')),
     path('api/verification/', include('verification.urls')),

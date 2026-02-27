@@ -11,3 +11,6 @@ whitenoise==6.6.0
 python-decouple==3.8
 bcrypt==4.0.1
 reportlab
+
+# Needed for djangorestframework-simplejwt in Python 3.12+
+setuptools>=70.0.0

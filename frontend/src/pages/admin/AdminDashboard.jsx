@@ -3,9 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import {
-    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu, Bell, ChevronRight, ChevronDown, Check, PieChart, LineChart, Grid
+    Users, Home, AlertOctagon, FileText, Download, TrendingUp, Activity, BarChart3, LogOut, MapPin, Menu, Bell, ChevronRight, ChevronDown, Check, PieChart, LineChart
 } from 'lucide-react';
-
 
 import { Line, Doughnut } from 'react-chartjs-2';
 import {
@@ -777,7 +776,7 @@ const AdminDashboard = () => {
 
 // Sub-components
 // Sub-components
-const StatCard = ({ label, value, icon, trend, subtext, color, onClick, progress }) => {
+const StatCard = ({ label, value, icon, subtext, color, onClick, progress }) => {
     const borderClass = color === 'blue' ? 'border-janmat-blue' : color === 'red' ? 'border-red-500' : 'border-slate-200 dark:border-slate-700';
     const iconBg = color === 'blue' ? 'bg-blue-50 text-janmat-blue dark:bg-slate-700 dark:text-janmat-light' : color === 'red' ? 'bg-red-50 text-red-600 dark:bg-red-900 dark:text-red-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300';
     const progressColor = color === 'blue' ? 'bg-janmat-blue dark:bg-janmat-light' : color === 'red' ? 'bg-red-500' : 'bg-slate-500 dark:bg-slate-400';

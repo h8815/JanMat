@@ -24,7 +24,7 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY ./backend/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --default-timeout=1000 -i https://pypi.org/simple --no-cache-dir -r requirements.txt
 
 # Development stage
 FROM base AS development

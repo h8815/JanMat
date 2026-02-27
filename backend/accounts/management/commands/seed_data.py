@@ -1,3 +1,64 @@
+# # ONLY CREATING SUPER ADMINs
+
+# from django.core.management.base import BaseCommand
+# from django.contrib.auth.hashers import make_password
+# from accounts.models import SuperAdmin
+
+# class Command(BaseCommand):
+#     help = 'Creates super admins for the system'
+
+#     def handle(self, *args, **kwargs):
+#         self.stdout.write('Creating super admins...')
+        
+#         # Create super admins
+#         super_admins_data = [
+#             {
+#                 'email': 'babitaji81815@gmail.com',
+#                 'name': 'Chief Commissioner 1',
+#                 'username': 'superadmin1',
+#                 'password': '123'    
+#             },
+#             {
+#                 'email': 'sc23cs301052@medicaps.ac.in',
+#                 'name': 'Chief Commissioner 2',
+#                 'username': 'superadmin2',
+#                 'password': '123'
+#             }
+#         ]
+        
+#         created_count = 0
+#         existing_count = 0
+        
+#         for admin_data in super_admins_data:
+#             super_admin, created = SuperAdmin.objects.get_or_create(
+#                 email=admin_data['email'],
+#                 defaults={
+#                     'name': admin_data['name'],
+#                     'username': admin_data['username'],
+#                     'password': make_password(admin_data['password'])
+#                 }
+#             )
+            
+#             if created:
+#                 created_count += 1
+#                 self.stdout.write(self.style.SUCCESS(f'Created: {admin_data["email"]}'))
+#             else:
+#                 existing_count += 1
+#                 self.stdout.write(self.style.WARNING(f'Already exists: {admin_data["email"]}'))
+        
+#         # Summary
+#         self.stdout.write(self.style.SUCCESS(f'\nSummary:'))
+#         self.stdout.write(self.style.SUCCESS(f'Created: {created_count} super admin(s)'))
+#         self.stdout.write(self.style.SUCCESS(f'Already existed: {existing_count} super admin(s)'))
+        
+#         # Display login credentials
+#         self.stdout.write(self.style.SUCCESS('\nLogin Credentials:'))
+#         for admin_data in super_admins_data:
+#             self.stdout.write(f'\nEmail: {admin_data["email"]}')
+#             self.stdout.write(f'Password: {admin_data["password"]}')
+#             self.stdout.write(f'Username: {admin_data["username"]}')
+
+
 from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
@@ -26,48 +87,64 @@ class Command(BaseCommand):
         BiometricTemplate.objects.all().delete()
         Operator.objects.all().delete()
         
-        self.stdout.write('Seeding Multi-Tenant Data...')
+        self.stdout.write('Seeding specific data...')
         
-        # 1. SuperAdmins
-        sa1, _ = SuperAdmin.objects.get_or_create(email='superadmin@gmail.com', defaults={'name': 'Chief Commissioner', 'password': make_password('123')})
-        sa2, _ = SuperAdmin.objects.get_or_create(email='observer@gmail.com', defaults={'name': 'Election Observer', 'password': make_password('123')})
+        # 1. SuperAdmins (2)
+        sa1, _ = SuperAdmin.objects.get_or_create(
+            email='babitaji81815@gmail.com', 
+            defaults={'name': 'Chief Commissioner 1', 'username': 'superadmin1', 'password': make_password('123')}
+        )
+        sa2, _ = SuperAdmin.objects.get_or_create(
+            email='sc23cs301052@medicaps.ac.in', 
+            defaults={'name': 'Chief Commissioner 2', 'username': 'superadmin2', 'password': make_password('123')}
+        )
         
-        # 2. Tenant Admins (Districts)
+        # 2. Tenant Admins (2)
         admins = []
-        # Admin 1 (Delhi)
-        delhi_admin, _ = Admin.objects.get_or_create(email='admin@gmail.com', defaults={'name': 'Delhi Admin', 'password': make_password('123'), 'created_by': sa1})
-        admins.append(delhi_admin)
+        admin1, _ = Admin.objects.get_or_create(
+            email='babitaji81815@gmail.com', 
+            defaults={'name': 'Admin One', 'username': 'admin1', 'password': make_password('123'), 'created_by': sa1}
+        )
+        admins.append(admin1)
 
-        # Admin 2 (Mumbai)
-        mumbai_admin, _ = Admin.objects.get_or_create(email='mumbai@janmat.com', defaults={'name': 'Mumbai Admin', 'password': make_password('123'), 'created_by': sa1})
-        admins.append(mumbai_admin)
+        admin2, _ = Admin.objects.get_or_create(
+            email='sc23cs301052@medicaps.ac.in', 
+            defaults={'name': 'Admin Two', 'username': 'admin2', 'password': make_password('123'), 'created_by': sa2}
+        )
+        admins.append(admin2)
 
-        # Admin 3 (Chennai)
-        chennai_admin, _ = Admin.objects.get_or_create(email='chennai@janmat.com', defaults={'name': 'Chennai Admin', 'password': make_password('123'), 'created_by': sa2})
-        admins.append(chennai_admin)
+        self.stdout.write(f'Ensured Tenant Admins')
 
-        self.stdout.write(f'Ensured {len(admins)} Tenant Admins')
-
-        # 3. Create Operators (Random 8-12 per Admin)
+        # 3. Create Operators (2)
         all_operators = []
-        for admin_idx, admin in enumerate(admins):
-            prefix = ['DL', 'MH', 'TN'][admin_idx]
-            num_ops = random.randint(8, 12)
-            for i in range(1, num_ops + 1):
-                booth_num = f"{prefix}-{random.randint(100, 999)}"
-                op_email = f"op.{prefix.lower()}{i}@janmat.com"
+        
+        op1, _ = Operator.objects.get_or_create(
+            email='babitaji81815@gmail.com',
+            defaults={
+                'username': 'operator1',
+                'password': make_password('123'),
+                'name': 'Operator One',
+                'booth_id': 'DL-101',
+                'created_by': admin1,
+                'is_active': True
+            }
+        )
+        all_operators.append(op1)
 
-                op = Operator.objects.create(
-                    email=op_email,
-                    password=make_password('123'),
-                    name=f"{get_random_name()} ({prefix})",
-                    booth_id=booth_num,
-                    created_by=admin,
-                    is_active=random.choice([True, True, True, False])
-                )
-                all_operators.append(op)
+        op2, _ = Operator.objects.get_or_create(
+            email='sc23cs301052@medicaps.ac.in',
+            defaults={
+                'username': 'operator2',
+                'password': make_password('123'),
+                'name': 'Operator Two',
+                'booth_id': 'MH-202',
+                'created_by': admin2,
+                'is_active': True
+            }
+        )
+        all_operators.append(op2)
 
-        self.stdout.write(f'Ensured Operators distributed across tenants')
+        self.stdout.write(f'Ensured Operators')
 
         self.stdout.write('4. Creating Random Fraud Scenarios...')
 

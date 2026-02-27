@@ -1,3 +1,4 @@
+from accounts.constants import SystemRoles
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -47,16 +48,9 @@ class AdminChangePasswordSerializer(serializers.Serializer):
         return value
 
 class CreateOperatorSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
-    booth_id = serializers.CharField(max_length=50)
+    booth_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
     full_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
-
-    def validate_username(self, value):
-        username = value.strip()
-        if Operator.objects.filter(username=username).exists() or Admin.objects.filter(username=username).exists():
-            raise serializers.ValidationError("Username is already taken.")
-        return username
 
     def validate_email(self, value):
         email = value.lower().strip()
@@ -72,17 +66,17 @@ class SuperAdminSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'last_login']
     
     def get_role(self, obj):
-        return 'SUPERUSER'
+        return SystemRoles.SUPERUSER
 
 class AdminSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     class Meta:
         model = Admin
-        fields = ['id', 'username', 'email', 'name', 'role', 'created_at', 'last_login']
+        fields = ['id', 'username', 'email', 'name', 'role', 'state', 'district', 'tehsil', 'created_at', 'last_login']
         read_only_fields = ['id', 'created_at', 'last_login']
 
     def get_role(self, obj):
-        return 'ADMIN'
+        return SystemRoles.ADMIN
 
 class OperatorSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
@@ -94,7 +88,7 @@ class OperatorSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'last_login', 'email', 'username']
 
     def get_role(self, obj):
-        return 'OPERATOR'
+        return SystemRoles.OPERATOR
     
     def update(self, instance, validated_data):
         if 'full_name' in validated_data:

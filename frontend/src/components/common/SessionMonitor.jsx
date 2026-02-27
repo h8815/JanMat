@@ -43,7 +43,7 @@ const SessionMonitor = () => {
             const refreshToken = localStorage.getItem('refresh_token');
             if (!refreshToken) throw new Error('No refresh token');
 
-            const response = await axios.post('http://127.0.0.1:8000/api/auth/token/refresh/', {
+            const response = await axios.post(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'}/auth/token/refresh/`, {
                 refresh: refreshToken,
             });
 

@@ -1,3 +1,4 @@
+from accounts.constants import SystemRoles
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdmin])
@@ -8,7 +9,7 @@ def booth_activity_heatmap(request):
         role = getattr(user, 'role', '')
         
         filters = {}
-        if role == 'ADMIN':
+        if role == SystemRoles.ADMIN:
             filters['admin_id'] = user.id
             
         # Default to last 24 hours for hourly heatmap

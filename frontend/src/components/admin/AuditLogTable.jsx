@@ -68,6 +68,32 @@ const AuditLogTable = () => {
         }
     };
 
+    const renderDetails = (log) => {
+        if (!log.details) return '-';
+
+        // Ensure details is an object (Django might send it as a JSON string)
+        let parsedDetails = log.details;
+        if (typeof parsedDetails === 'string') {
+            try {
+                parsedDetails = JSON.parse(parsedDetails);
+            } catch {
+                return log.details;
+            }
+        }
+
+        if (log.action === 'biometric_scan' && parsedDetails.quality) {
+            return `Biometric Scan Quality: ${parsedDetails.quality}%`;
+        }
+
+        // For other actions, sanitize the output (remove voter IDs for better UX)
+        const displayObj = { ...parsedDetails };
+        delete displayObj.voter_id; // Hide unnecessary UUIDs from UI
+
+        const str = JSON.stringify(displayObj);
+        if (str === '{}') return '-';
+        return str.length > 50 ? str.substring(0, 50) + '...' : str;
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-slate-200 shadow-sm flex-wrap gap-4 dark:bg-slate-800 dark:border-slate-700">
@@ -157,7 +183,7 @@ const AuditLogTable = () => {
                                             {log.ip_address || '—'}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate dark:text-slate-400" title={JSON.stringify(log.details, null, 2)}>
-                                            {log.details ? JSON.stringify(log.details).substring(0, 50) + (JSON.stringify(log.details).length > 50 ? '...' : '') : '-'}
+                                            {renderDetails(log)}
                                         </td>
                                     </tr>
                                 ))

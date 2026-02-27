@@ -19,6 +19,11 @@ python manage.py makemigrations verification
 python manage.py makemigrations fraud
 python manage.py migrate
 
+# Create cache table (safe if it already exists)
+echo "Ensuring cache tables exist..."
+python manage.py createcachetable
+
+
 # Collect static files
 echo "Collecting static files..."
 python manage.py collectstatic --noinput

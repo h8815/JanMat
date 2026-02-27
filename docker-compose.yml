@@ -49,6 +49,8 @@ services:
     restart: unless-stopped
     networks:
       - janmat-network
+    extra_hosts:
+      - "api.sandbox.co.in:13.127.77.113"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
       interval: 30s
@@ -62,6 +64,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://127.0.0.1:8000/api}
     container_name: janmat_frontend
     ports:
       - "${FRONTEND_PORT:-80}:80"

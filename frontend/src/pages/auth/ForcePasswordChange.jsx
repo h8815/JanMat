@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertCircle, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import api from '../../api/axios';
-import { jwtDecode } from 'jwt-decode';
-import { useAuth } from '../../context/AuthContext';
+import { ROLES } from '../../constants/roles';
 
 const ForcePasswordChange = () => {
     const navigate = useNavigate();
@@ -83,7 +82,7 @@ const ForcePasswordChange = () => {
             localStorage.setItem('refresh_token', refresh);
 
             // Redirect them to their respective dashboard
-            if (role === 'ADMIN' || role === 'SUPERUSER') {
+            if (role === ROLES.ADMIN || role === ROLES.SUPERUSER) {
                 window.location.href = '/admin-dashboard';
             } else {
                 window.location.href = '/operator-dashboard';

@@ -38,6 +38,7 @@ class AbstractJanmatActor(models.Model):
     email = models.EmailField(unique=True)
     password = models.CharField(max_length=128) # Stores hashed password
     name = models.CharField(max_length=255, blank=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
@@ -65,6 +66,12 @@ class SuperAdmin(AbstractJanmatActor):
 class Admin(AbstractJanmatActor):
     """Middle-level Entity: Tenant/District Admin"""
     must_change_password = models.BooleanField(default=True)
+    
+    # Geographic Hierarchy
+    state = models.CharField(max_length=100, blank=True, null=True)
+    district = models.CharField(max_length=100, blank=True, null=True)
+    tehsil = models.CharField(max_length=100, blank=True, null=True)
+    
     # Linked to SuperAdmin who created/manages them
     created_by = models.ForeignKey(SuperAdmin, on_delete=models.SET_NULL, null=True, related_name='admins')
     

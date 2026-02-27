@@ -1,14 +1,13 @@
+from accounts.constants import SystemRoles
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db import transaction
 from django.utils import timezone
 from django.core.cache import cache
 import logging
 
 from .services import AadhaarService, BiometricService, FraudDetectionService, AuditService
-from accounts.models import Operator
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ def require_operator_session(view_func):
         
         # Check custom role attribute set by authentication
         role = getattr(request.user, 'role', '')
-        if role != 'OPERATOR':
+        if role != SystemRoles.OPERATOR:
              return Response({'error': 'Only booth operators can access this endpoint'}, status=status.HTTP_403_FORBIDDEN)
         
         # Ensure operator has admin (tenant isolation)
@@ -65,8 +64,11 @@ def send_otp(request):
         })
         
     except Exception as e:
-        logger.error(f"Send OTP failed: {str(e)}")
-        return Response({'error': 'Failed to send OTP. Please try again.'}, status=500)
+        error_msg = str(e)
+        logger.error(f"Send OTP failed: {error_msg}")
+        if "Rate limit exceeded" in error_msg:
+            return Response({'error': error_msg}, status=429)
+        return Response({'error': error_msg}, status=400)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -106,8 +108,33 @@ def verify_otp(request):
                 admin_id=admin_id,
                 operator_id=request.user.id,
                 aadhaar_number=aadhaar_number,
+                booth_number=request.user.booth_id,
                 details={'voter_id': voter_data['id'], 'ip_address': request.META.get('REMOTE_ADDR')}
             )
+            
+            # Trace geographic origin
+            state, district, tehsil, booth = "", "", "", ""
+            try:
+                from accounts.models import Admin, Operator
+                from verification.models import Voter
+                orig_voter = Voter.objects.get(id=voter_data['id'])
+                orig_admin = Admin.objects.get(id=orig_voter.admin_id)
+                state = orig_admin.state
+                district = orig_admin.district
+                tehsil = orig_admin.tehsil
+                if orig_voter.operator_id:
+                    orig_operator = Operator.objects.get(id=orig_voter.operator_id)
+                    booth = orig_operator.booth_id
+            except Exception as geo_err:
+                logger.warning(f"Failed to fetch geographic origin for already voted {aadhaar_number}: {geo_err}")
+
+            voter_data['original_location'] = {
+                'state': state,
+                'district': district,
+                'tehsil': tehsil,
+                'booth_id': booth
+            }
+
             return Response({
                 'success': False,
                 'error': 'This voter has already been marked as voted',
@@ -166,6 +193,7 @@ def biometric_scan(request):
                 operator_id=request.user.id,
                 aadhaar_number=aadhaar_number,
                 biometric_hash=template_hash,
+                booth_number=request.user.booth_id,
                 details={'current_voter_id': voter_id, 'existing_voter': duplicate_check['existing_voter'], 'quality': quality_score}
             )
             

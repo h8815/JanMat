@@ -106,8 +106,8 @@ const FraudLogTable = () => {
             dob: v.dob || "XX/XX/XXXX",
             gender: v.gender || "Unknown",
             aadhaar: selectedLog.aadhaar_number || "XXXX XXXX XXXX",
-            photo: v.photo,
-            address: v.address || "Address not available"
+            photo: v.photo_base64 || v.photo,
+            address: v.full_address || "Address not available"
         };
     };
 
@@ -300,9 +300,9 @@ const FraudLogTable = () => {
             {/* Detail Modal - Aadhaar Card UI */}
             {modalOpen && selectedLog && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full animate-in fade-in zoom-in-95 duration-200 overflow-hidden dark:bg-slate-800 dark:border dark:border-slate-700">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-200 overflow-hidden dark:bg-slate-800 dark:border dark:border-slate-700">
                         {/* Modal Header */}
-                        <div className="flex justify-between items-center bg-slate-100 px-6 py-4 border-b dark:bg-slate-900 dark:border-slate-700">
+                        <div className="flex justify-between items-center bg-slate-100 px-6 py-4 border-b flex-shrink-0 dark:bg-slate-900 dark:border-slate-700">
                             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
                                 <AlertTriangle className="text-red-600" />
                                 {t('modal_fraud_details')}
@@ -312,9 +312,9 @@ const FraudLogTable = () => {
                             </button>
                         </div>
 
-                        <div className="p-8 bg-slate-50 flex flex-col items-center dark:bg-slate-800">
+                        <div className="p-4 sm:p-6 bg-slate-50 flex flex-col overflow-y-auto dark:bg-slate-800">
                             {/* Realistic Aadhaar Card UI - Keep this mostly light as it mimics a physical card, but perhaps dim it slightly or keep it stark against dark background */}
-                            <div className="w-full max-w-md bg-white rounded-lg shadow-md border border-slate-200 overflow-hidden relative">
+                            <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-md border border-slate-200 overflow-hidden relative flex-shrink-0">
                                 {/* Card Header */}
                                 <div className="bg-gradient-to-r from-orange-100 via-white to-green-100 p-3 border-b border-slate-100 flex items-center justify-between">
                                     <div className="w-12 h-12 grayscale opacity-50 bg-[url('https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg')] bg-contain bg-no-repeat bg-center"></div>
@@ -326,11 +326,11 @@ const FraudLogTable = () => {
                                 </div>
 
                                 {/* Card Body */}
-                                <div className="p-4 flex gap-4 items-start relative">
+                                <div className="p-4 flex gap-4 items-center relative">
                                     {/* Photo */}
-                                    <div className="w-24 h-32 bg-slate-200 rounded border border-slate-300 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                    <div className="w-20 h-24 bg-slate-200 rounded border border-slate-300 flex items-center justify-center overflow-hidden flex-shrink-0">
                                         {voter.photo ? (
-                                            <img src={voter.photo} alt="Voter" className="w-full h-full object-cover" loading="lazy" decoding="async" />
+                                            <img src={voter.photo.startsWith('data:image') ? voter.photo : `data:image/jpeg;base64,${voter.photo}`} alt="Voter" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                                         ) : (
                                             <div className="text-slate-400 text-center text-xs">
                                                 <div className="w-12 h-12 mx-auto mb-1 bg-slate-300 rounded-full" />
@@ -341,19 +341,22 @@ const FraudLogTable = () => {
 
                                     {/* Details */}
                                     <div className="flex-1 space-y-1">
-                                        <p className="font-bold text-lg text-slate-900">{voter.name}</p>
+                                        <p className="font-bold text-base text-slate-900">{voter.name}</p>
                                         <p className="text-xs text-slate-600">DOB: <span className="font-semibold text-slate-800">{voter.dob}</span></p>
                                         <p className="text-xs text-slate-600">Gender: <span className="font-semibold text-slate-800">{voter.gender}</span></p>
-                                        <div className="mt-2 text-xs text-slate-600">
-                                            Address:
-                                            <p className="font-semibold text-slate-800 leading-tight mt-0.5">{voter.address}</p>
+                                        <div className="pt-1">
+                                            <p className="text-[10px] text-slate-500 font-semibold mb-0.5 uppercase tracking-wider">Address:</p>
+                                            <p className="text-xs text-slate-800 font-medium leading-relaxed" title={voter.address}>{voter.address}</p>
                                         </div>
+                                    </div>
+                                </div>
 
-                                        <div className="mt-4 pt-2 border-t border-dashed border-slate-200">
-                                            <p className="text-xl font-mono font-bold text-slate-800 tracking-widest text-center">
-                                                {voter.aadhaar}
-                                            </p>
-                                        </div>
+                                {/* Extracted Details for shorter vertical layout */}
+                                <div className="px-4 pb-4">
+                                    <div className="mt-2 text-center">
+                                        <p className="text-xl font-mono font-bold text-slate-900 tracking-[0.2em] bg-slate-50 border border-slate-200 py-1.5 rounded">
+                                            {voter.aadhaar}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -373,7 +376,52 @@ const FraudLogTable = () => {
                                     <p className="text-xs text-slate-500 font-bold uppercase dark:text-slate-400">Booth Location</p>
                                     <p className="font-bold text-slate-800 dark:text-white">{selectedLog.booth_number}</p>
                                 </div>
+                                {selectedLog.voter?.original_location && (
+                                    <div className="bg-blue-50/50 p-3 rounded border border-blue-100 col-span-2 dark:bg-blue-900/20 dark:border-blue-800">
+                                        <p className="text-xs text-blue-600 font-bold uppercase mb-2 dark:text-blue-400">Original Voter Registration</p>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                            <div>
+                                                <span className="text-slate-500 block dark:text-slate-400">State</span>
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedLog.voter.original_location.state || 'N/A'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-500 block dark:text-slate-400">District</span>
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedLog.voter.original_location.district || 'N/A'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-500 block dark:text-slate-400">Tehsil</span>
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedLog.voter.original_location.tehsil || 'N/A'}</span>
+                                            </div>
+                                            <div>
+                                                <span className="text-slate-500 block dark:text-slate-400">Booth</span>
+                                                <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedLog.voter.original_location.booth_id || 'N/A'}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Fraud History Trace */}
+                            {selectedLog.fraud_history && selectedLog.fraud_history.length > 0 && (
+                                <div className="mt-4 w-full bg-red-50 p-3 rounded border border-red-200 dark:bg-red-900/10 dark:border-red-900/30">
+                                    <p className="text-sm font-bold flex items-center gap-1.5 text-red-700 mb-3 dark:text-red-400">
+                                        <Clock className="w-4 h-4" /> Fraud History Match
+                                    </p>
+                                    <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                                        {selectedLog.fraud_history.map(fh => (
+                                            <div key={fh.id} className="bg-white p-2 text-xs flex justify-between items-center rounded border border-red-100 shadow-sm dark:bg-slate-800 dark:border-red-900/50">
+                                                <div>
+                                                    <p className="font-semibold text-red-600 dark:text-red-400">{formatFraudType(fh.fraud_type)}</p>
+                                                    <p className="text-slate-500 mt-0.5 dark:text-slate-400">{new Date(fh.flagged_at).toLocaleString()} • Booth: {fh.booth_number}</p>
+                                                </div>
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${fh.reviewed ? 'bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30' : 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30'}`}>
+                                                    {fh.reviewed ? 'Reviewed' : 'Pending'}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="px-6 py-4 bg-slate-100 flex justify-end border-t dark:bg-slate-900 dark:border-slate-700">
