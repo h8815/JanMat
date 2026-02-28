@@ -232,42 +232,58 @@ const FraudLogTable = () => {
                                     </td>
                                 </tr>
                             ) : (
-                                logs.map((log) => (
-                                    <tr
-                                        key={log.id}
-                                        className="hover:bg-slate-50 cursor-pointer transition-colors dark:hover:bg-slate-700"
-                                        onClick={() => handleRowClick(log.id)}
-                                    >
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
-                                            <div className="flex items-center gap-2">
-                                                <Clock className="w-4 h-4 text-slate-400" />
-                                                {new Date(log.flagged_at).toLocaleString()}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-slate-700 dark:text-slate-200">
-                                            {log.aadhaar_masked || 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-bold dark:text-slate-300">
-                                            {log.booth_number}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-bold border border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-900">
-                                                {formatFraudType(log.fraud_type)}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {log.reviewed ? (
-                                                <span className="flex items-center gap-1 text-green-600 text-xs font-bold dark:text-green-400">
-                                                    <CheckCircle className="w-4 h-4" /> Reviewed
+                                logs.map((log) => {
+                                    // Determine severity color
+                                    let rowBgClass = "hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors cursor-pointer ";
+
+                                    if (log.fraud_type === 'duplicate_biometric') {
+                                        rowBgClass += "bg-red-50/50 hover:bg-red-50 dark:bg-red-900/10 dark:hover:bg-red-900/20";
+                                    } else if (log.fraud_type === 'multiple_otp_attempts' || log.fraud_type === 'already_voted') {
+                                        rowBgClass += "bg-orange-50/50 hover:bg-orange-50 dark:bg-orange-900/10 dark:hover:bg-orange-900/20";
+                                    } else {
+                                        rowBgClass += "bg-white dark:bg-slate-800";
+                                    }
+
+                                    return (
+                                        <tr
+                                            key={log.id}
+                                            className={rowBgClass}
+                                            onClick={() => handleRowClick(log.id)}
+                                        >
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-300">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock className="w-4 h-4 text-slate-400" />
+                                                    {new Date(log.flagged_at).toLocaleString()}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-slate-700 dark:text-slate-200">
+                                                {log.aadhaar_masked || 'N/A'}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-bold dark:text-slate-300">
+                                                {log.booth_number}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-bold border ${log.fraud_type === 'duplicate_biometric' ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-900' :
+                                                    log.fraud_type === 'multiple_otp_attempts' || log.fraud_type === 'already_voted' ? 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/40 dark:text-orange-300 dark:border-orange-900' :
+                                                        'bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600'
+                                                    }`}>
+                                                    {formatFraudType(log.fraud_type)}
                                                 </span>
-                                            ) : (
-                                                <span className="flex items-center gap-1 text-amber-600 text-xs font-bold dark:text-amber-400">
-                                                    <AlertTriangle className="w-4 h-4" /> Pending
-                                                </span>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                {log.reviewed ? (
+                                                    <span className="flex items-center gap-1 text-green-600 text-xs font-bold dark:text-green-400">
+                                                        <CheckCircle className="w-4 h-4" /> Reviewed
+                                                    </span>
+                                                ) : (
+                                                    <span className="flex items-center gap-1 text-amber-600 text-xs font-bold dark:text-amber-400">
+                                                        <AlertTriangle className="w-4 h-4" /> Pending
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
@@ -368,9 +384,14 @@ const FraudLogTable = () => {
 
                             {/* Incident Meta Info */}
                             <div className="mt-6 w-full grid grid-cols-2 gap-4 text-sm">
-                                <div className="bg-white p-3 rounded border border-slate-200 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200">
+                                <div className="bg-white p-3 rounded border border-slate-200 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200 relative">
                                     <p className="text-xs text-slate-500 font-bold uppercase dark:text-slate-400">Incident Type</p>
                                     <p className="font-bold text-red-600 dark:text-red-400">{selectedLog.fraud_type}</p>
+                                    {selectedLog.fraud_history && selectedLog.fraud_history.length > 0 && (
+                                        <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-black uppercase rounded shadow-sm border border-red-200 animate-pulse">
+                                            {selectedLog.fraud_history.length + 1}nd Offense Today
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="bg-white p-3 rounded border border-slate-200 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200">
                                     <p className="text-xs text-slate-500 font-bold uppercase dark:text-slate-400">Booth Location</p>
@@ -404,9 +425,14 @@ const FraudLogTable = () => {
                             {/* Fraud History Trace */}
                             {selectedLog.fraud_history && selectedLog.fraud_history.length > 0 && (
                                 <div className="mt-4 w-full bg-red-50 p-3 rounded border border-red-200 dark:bg-red-900/10 dark:border-red-900/30">
-                                    <p className="text-sm font-bold flex items-center gap-1.5 text-red-700 mb-3 dark:text-red-400">
-                                        <Clock className="w-4 h-4" /> Fraud History Match
-                                    </p>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <p className="text-sm font-bold flex items-center gap-1.5 text-red-700 dark:text-red-400">
+                                            <Clock className="w-4 h-4" /> Fraud History Match
+                                        </p>
+                                        <span className="px-2 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded-full shadow-sm">
+                                            {selectedLog.fraud_history.length + 1} Total Attempts
+                                        </span>
+                                    </div>
                                     <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
                                         {selectedLog.fraud_history.map(fh => (
                                             <div key={fh.id} className="bg-white p-2 text-xs flex justify-between items-center rounded border border-red-100 shadow-sm dark:bg-slate-800 dark:border-red-900/50">

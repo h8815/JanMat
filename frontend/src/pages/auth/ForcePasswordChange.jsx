@@ -100,106 +100,116 @@ const ForcePasswordChange = () => {
     if (!username) return null;
 
     return (
-        <div className="min-h-screen bg-tricolor relative">
-            <div className="absolute inset-0 bg-black/55"></div>
+        <div className="min-h-screen bg-tricolor flex flex-col items-center justify-center p-6 sm:p-12 font-sans overflow-hidden relative">
 
-            <main className="relative z-10 min-h-screen flex items-center justify-center p-6">
-                <div className="bg-white rounded-xl p-8 card-shadow border border-slate-200 w-full max-w-md animate-in fade-in zoom-in-95 duration-300">
+            {/* Elegant Header Graphic */}
+            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-blue-900/90 to-transparent pointer-events-none"></div>
+
+            <main className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out mt-8">
+
+                {/* Clean, High-Contrast Solid Card */}
+                <div className="bg-white rounded-2xl p-8 sm:p-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 relative overflow-hidden">
 
                     <div className="text-center mb-8">
-                        <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-blue-100">
-                            <ShieldCheck className="w-8 h-8 text-janmat-blue" />
+                        <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-sm">
+                            <ShieldCheck className="w-8 h-8 text-blue-600" strokeWidth={2} />
                         </div>
-                        <h1 className="text-2xl font-bold text-slate-800">Secure Your Account</h1>
-                        <p className="text-slate-500 text-sm mt-2">
-                            For security reasons, you must change your temporary password before accessing the JanMat portal.
+                        <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-2">Secure Your Account</h1>
+                        <p className="text-slate-500 text-sm sm:text-base leading-relaxed">
+                            For security reasons, you must establish a permanent password before accessing the JanMat portal.
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form onSubmit={handleSubmit} className="space-y-6">
 
+                        {/* Current Password */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Current/Temporary Password</label>
-                            <div className="relative">
+                            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Current Password</label>
+                            <div className="relative group">
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     value={tempPassword}
                                     onChange={(e) => setTempPassword(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-janmat-blue outline-none pr-10"
-                                    placeholder="Enter your initial password"
+                                    className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 text-lg placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none pr-12"
+                                    placeholder="Enter initial password"
                                     required
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600"
+                                    className="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-blue-600 transition-colors"
                                 >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </div>
                         </div>
 
+                        {/* New Password */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
-                            <div className="relative">
+                            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">New Password <span className="text-slate-500 font-normal normal-case tracking-normal">(Min 12 keys)</span></label>
+                            <div className="relative group flex flex-col">
                                 <input
                                     type={showPassword ? "text" : "password"}
                                     value={newPassword}
                                     onChange={handlePasswordChange}
-                                    className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-janmat-blue outline-none pr-10"
-                                    placeholder="Enter 12+ characters"
+                                    className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 text-lg font-mono placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none pr-12"
+                                    placeholder="Create strong password"
                                     required
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-slate-600"
+                                    className="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-blue-600 transition-colors"
                                 >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                                 </button>
                             </div>
 
                             {/* Password Strength Indicator */}
                             {newPassword && (
-                                <div className="mt-2 text-xs flex items-center gap-2 animate-in fade-in duration-200">
-                                    <div className="flex gap-1 h-1.5 flex-1 max-w-[150px]">
+                                <div className="mt-4 flex items-center gap-3 animate-in fade-in duration-300 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                    <div className="flex gap-2 h-2.5 w-full max-w-[200px]">
                                         {[1, 2, 3, 4].map(num => (
-                                            <div key={num} className={`h-full flex-1 rounded-sm transition-colors ${passwordScore >= num ? getStrengthColor(passwordScore) : 'bg-slate-200'}`}></div>
+                                            <div
+                                                key={num}
+                                                className={`h-full flex-1 rounded-full transition-all duration-500 ${passwordScore >= num ? getStrengthColor(passwordScore) : 'bg-slate-200'}`}
+                                            ></div>
                                         ))}
                                     </div>
-                                    <span className={`font-medium ${getStrengthColor(passwordScore).replace('bg-', 'text-')}`}>
+                                    <span className={`text-xs font-black uppercase tracking-wider ${getStrengthColor(passwordScore).replace('bg-', 'text-')}`}>
                                         {['Weak', 'Fair', 'Good', 'Strong'][passwordScore - 1] || 'Weak'}
                                     </span>
                                 </div>
                             )}
                         </div>
 
+                        {/* Confirm Password */}
                         <div>
-                            <label className="block text-sm font-medium text-slate-700 mb-1">Confirm New Password</label>
+                            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Confirm New Password</label>
                             <input
                                 type={showPassword ? "text" : "password"}
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-janmat-blue outline-none"
+                                className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 text-lg font-mono placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
                                 placeholder="Match new password"
                                 required
                             />
                         </div>
 
                         {error && (
-                            <div className="p-3 bg-red-50 border border-red-100 rounded text-sm text-red-600 flex gap-2 items-start">
-                                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                <p>{error}</p>
+                            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-sm text-red-700 flex gap-3 items-start animate-in slide-in-from-top-2 font-medium">
+                                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
+                                <p className="leading-snug">{error}</p>
                             </div>
                         )}
 
                         <button
                             type="submit"
-                            disabled={loading || passwordScore < 2} // Force at least 'Fair' severity
-                            className="w-full mt-4 px-4 py-3 bg-janmat-blue text-white font-bold rounded-lg hover:bg-janmat-hover focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue disabled:opacity-50 flex items-center justify-center gap-2 transition-colors"
+                            disabled={loading || passwordScore < 2}
+                            className="w-full mt-4 px-6 py-4 bg-blue-600 text-white text-lg font-black tracking-wide uppercase rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/30 disabled:opacity-50 disabled:bg-slate-400 flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-blue-500/25 mt-2"
                         >
-                            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                            <span>{loading ? 'Securing Account...' : 'Save & Continue'}</span>
+                            {loading && <Loader2 className="w-6 h-6 animate-spin" />}
+                            <span>{loading ? 'Securing Environment...' : 'Establish Secure Connection'}</span>
                         </button>
 
                     </form>

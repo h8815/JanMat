@@ -296,7 +296,26 @@ const resources = {
             'placeholder_description': 'Describe the incident in detail...',
             'audit_warning_desc': 'All reports are recorded in the audit log with your operator ID and timestamp. Filing a false report is a punishable offense.',
             'btn_submit_incident': 'Submit Incident Report',
-            'terminal_audit_footer': 'All actions on this terminal are logged and audited.'
+            'terminal_audit_footer': 'All actions on this terminal are logged and audited.',
+
+            // Extracted Missing Translations
+            'email_send_failed': 'Failed to send credentials email.',
+            'email_sent_successfully': 'Credentials sent successfully!',
+            'fraud': 'Fraud',
+            'full_name': 'Full Name',
+            'no_recent_verifications': 'No Recent Verifications',
+            'no_recent_verifications_desc': 'Waiting for voters to be verified...',
+            'role': 'Role',
+            'session_expiring_message': 'Your session will expire soon due to inactivity. Please interact to stay logged in.',
+            'session_expiring_title': 'Session Expiring',
+            'tab': 'Tab',
+            'unauthorized': 'Unauthorized Access',
+            'verifications': 'Verifications',
+            'Could not load details': 'Could not load details',
+            'Failed to delete operator': 'Failed to delete operator',
+            'Failed to export report. Please try again.': 'Failed to export report. Please try again.',
+            'Failed to perform bulk action': 'Failed to perform bulk action',
+            'Failed to update operator status. Please try again.': 'Failed to update operator status. Please try again.'
         }
     },
     hi: {
@@ -589,7 +608,26 @@ const resources = {
             'placeholder_description': 'घटना का विस्तार से वर्णन करें...',
             'audit_warning_desc': 'सभी रिपोर्ट आपके ऑपरेटर आईडी और टाइमस्टैम्प के साथ ऑडिट लॉग में दर्ज की जाती हैं। झूठी रिपोर्ट दर्ज करना एक दंडनीय अपराध है।',
             'btn_submit_incident': 'घटना रिपोर्ट सबमिट करें',
-            'terminal_audit_footer': 'इस टर्मिनल पर सभी कार्रवाइयों को लॉग और ऑडिट किया जाता है।'
+            'terminal_audit_footer': 'इस टर्मिनल पर सभी कार्रवाइयों को लॉग और ऑडिट किया जाता है।',
+
+            // Extracted Missing Translations
+            'email_send_failed': 'ईमेल भेजने में विफल।',
+            'email_sent_successfully': 'ईमेल सफलतापूर्वक भेजा गया!',
+            'fraud': 'धोखाधड़ी',
+            'full_name': 'पूरा नाम',
+            'no_recent_verifications': 'कोई हालिया सत्यापन नहीं',
+            'no_recent_verifications_desc': 'मतदाताओं के सत्यापित होने की प्रतीक्षा में...',
+            'role': 'भूमिका',
+            'session_expiring_message': 'निष्क्रियता के कारण आपका सत्र जल्द ही समाप्त हो जाएगा। लॉग इन रहने के लिए इंटरैक्ट करें।',
+            'session_expiring_title': 'सत्र समाप्त हो रहा है',
+            'tab': 'टैब',
+            'unauthorized': 'अनधिकृत पहुंच',
+            'verifications': 'सत्यापन',
+            'Could not load details': 'विवरण लोड नहीं हो सका',
+            'Failed to delete operator': 'ऑपरेटर को हटाने में विफल',
+            'Failed to export report. Please try again.': 'रिपोर्ट निर्यात करने में विफल। कृपया पुनः प्रयास करें।',
+            'Failed to perform bulk action': 'थोक कार्रवाई करने में विफल',
+            'Failed to update operator status. Please try again.': 'ऑपरेटर की स्थिति अपडेट करने में विफल। कृपया पुनः प्रयास करें।'
         }
     }
 };

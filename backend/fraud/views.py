@@ -43,7 +43,8 @@ def fraud_logs(request):
 
         # 1. Search (Aadhaar, Booth)
         search_query = request.GET.get('search', '').strip()
-        is_aadhaar_search = search_query and search_query.isdigit() and len(search_query) >= 4
+        clean_search = search_query.replace(' ', '')
+        is_aadhaar_search = clean_search and clean_search.isdigit() and len(clean_search) >= 4
 
         # Base Query
         if is_superuser:
@@ -60,7 +61,7 @@ def fraud_logs(request):
 
         if search_query:
             queryset = queryset.filter(
-                Q(aadhaar_number__icontains=search_query) | 
+                Q(aadhaar_number__icontains=clean_search) | 
                 Q(booth_number__icontains=search_query)
             )
 

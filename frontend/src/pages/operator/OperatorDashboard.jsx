@@ -149,8 +149,50 @@ const OperatorDashboard = () => {
                                 <span className={`w-2 h-2 rounded-full ${boothOpen ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
                                 {boothOpen ? t('booth_active') : t('booth_closed')}
                             </span>
-                            <span className="px-2.5 py-1.5 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold border border-blue-200">
-                                {t('demo_mode')}
+                        </div>
+                    </div>
+                </div>
+
+                {/* LIVE STATS TICKER */}
+                <div className="bg-slate-800 rounded-xl p-3 mb-5 shadow-sm text-white flex flex-col sm:flex-row sm:items-center justify-between overflow-hidden relative gap-3 sm:gap-0">
+                    {/* Subtle pulsing background effect */}
+                    <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-green-500/20 to-transparent animate-pulse pointer-events-none"></div>
+
+                    <div className="flex items-center gap-3 z-10 flex-wrap">
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-600 bg-slate-700/50 text-[10px] font-bold tracking-wider uppercase text-green-400">
+                            <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                            </span>
+                            Live System
+                        </div>
+                        <div className="h-4 w-px bg-slate-600 hidden sm:block"></div>
+                        <div className="flex flex-col">
+                            <span className="text-xs sm:text-sm text-slate-300 font-medium">Session Overview</span>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                                Login: {user?.last_login ? new Date(user.last_login).toLocaleTimeString() : 'Just now'}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-4 sm:gap-6 z-10 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
+                        <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center gap-1 sm:gap-2 whitespace-nowrap">
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">Target</span>
+                            <span className="text-lg font-bold text-slate-300 font-mono">~300</span>
+                        </div>
+                        <div className="h-6 w-px bg-slate-700"></div>
+                        <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center gap-1 sm:gap-2 whitespace-nowrap">
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">Verified Today</span>
+                            <div className="flex items-baseline gap-1">
+                                <span className="text-lg font-bold text-white font-mono">{stats.today_verifications || 0}</span>
+                                <span className="text-[10px] text-green-400 font-bold">↑</span>
+                            </div>
+                        </div>
+                        <div className="h-6 w-px bg-slate-700"></div>
+                        <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center gap-1 sm:gap-2 whitespace-nowrap">
+                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">Fraud Blocked</span>
+                            <span className={`text-lg font-bold font-mono ${stats.fraud_alerts_today > 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                                {stats.fraud_alerts_today || 0}
                             </span>
                         </div>
                     </div>

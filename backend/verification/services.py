@@ -24,6 +24,7 @@ class AadhaarService:
     # API Endpoints
     SEND_OTP_URL = "https://api.sandbox.co.in/kyc/aadhaar/okyc/otp"
     VERIFY_OTP_URL = "https://api.sandbox.co.in/kyc/aadhaar/okyc/otp/verify"
+    AUTH_URL = "https://api.sandbox.co.in/authenticate"
     
     # Demo voter names pool
     DEMO_NAMES = [
@@ -39,6 +40,34 @@ class AadhaarService:
         ("कविता मिश्रा", "Kavita Mishra"),
     ]
     
+    @staticmethod
+    def get_valid_token():
+        """Retrieve Sandbox API token, fetching a new one if expired"""
+        cache_key = 'sandbox_api_token'
+        token = cache.get(cache_key)
+        
+        if token:
+            return token
+            
+        # Token not in cache, generate new one
+        auth_headers = {
+            "x-api-key": getattr(settings, 'SANDBOX_API_KEY', ''),
+            "x-api-secret": getattr(settings, 'SANDBOX_API_SECRET', '')
+        }
+        
+        try:
+            response = requests.post(AadhaarService.AUTH_URL, headers=auth_headers, timeout=10)
+            if response.status_code == 200:
+                token = response.json().get("access_token")
+                if token:
+                    # Sandbox tokens are valid for 24 hours. Cache for 23.5 hours to be safe.
+                    cache.set(cache_key, token, timeout=23 * 3600 + 1800)
+                    return token
+        except Exception as e:
+            logger.error(f"Failed to fetch Sandbox API token dynamically: {str(e)}")
+            
+        raise Exception("Failed to acquire valid Aadhaar API authentication token.")
+
     @staticmethod
     def send_otp(aadhaar_number, admin_id):
         """Send OTP to Aadhaar registered mobile - supports DEMO_MODE"""
@@ -83,9 +112,10 @@ class AadhaarService:
             # ═══════════════════════════════════════════
             # PRODUCTION: Call Sandbox API
             # ═══════════════════════════════════════════
+            token = AadhaarService.get_valid_token()
             headers = {
                 "accept": "application/json",
-                "authorization": settings.SANDBOX_AUTHORIZATION,
+                "authorization": token,
                 "x-api-key": settings.SANDBOX_API_KEY,
                 "x-api-version": "2.0",
                 "content-type": "application/json"
@@ -237,9 +267,10 @@ class AadhaarService:
             if not otp_record.reference_id:
                 return {'success': False, 'error': 'Invalid OTP session. Please request OTP again.'}
             
+            token = AadhaarService.get_valid_token()
             headers = {
                 "accept": "application/json",
-                "authorization": settings.SANDBOX_AUTHORIZATION,
+                "authorization": token,
                 "x-api-key": settings.SANDBOX_API_KEY,
                 "x-api-version": "2.0",
                 "content-type": "application/json"

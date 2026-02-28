@@ -107,17 +107,21 @@ const AdminDashboard = () => {
         return () => clearInterval(timer);
     }, []);
 
-    // Auto-refresh data every 10 seconds for real-time updates
+    // Auto-refresh data and interval state
+    const [refreshTrigger, setRefreshTrigger] = useState(false);
+    const [autoRefreshInterval, setAutoRefreshInterval] = useState(10); // 0 = off, 10, 30, 60 seconds
+
     useEffect(() => {
+        if (autoRefreshInterval === 0) return; // Disabled
+
         const interval = setInterval(() => {
             if (activeTab === 'dashboard' || activeTab === 'fraud' || activeTab === 'audit') {
                 setRefreshTrigger(prev => !prev);
             }
-        }, 10000);
-        return () => clearInterval(interval);
-    }, [activeTab]);
+        }, autoRefreshInterval * 1000);
 
-    const [refreshTrigger, setRefreshTrigger] = useState(false);
+        return () => clearInterval(interval);
+    }, [activeTab, autoRefreshInterval]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -167,6 +171,15 @@ const AdminDashboard = () => {
 
         fetchData();
     }, [activeTab, refreshTrigger]);
+
+    // Visual cue for refresh
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    useEffect(() => {
+        if (refreshTrigger) {
+            setIsRefreshing(true);
+            setTimeout(() => setIsRefreshing(false), 800);
+        }
+    }, [refreshTrigger]);
 
     // Separate effect for Chart to avoid reloading everything
     useEffect(() => {
@@ -587,23 +600,64 @@ const AdminDashboard = () => {
                         </button>
 
                         <div>
-                            <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
-                                {t('nav_' + activeTab) || (activeTab.charAt(0).toUpperCase() + activeTab.slice(1))}
-                                {activeTab === 'dashboard' && (
-                                    <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[10px] font-bold uppercase tracking-wider border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">
-                                        <span className="relative flex h-2 w-2">
-                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                                        </span>
-                                        Live
-                                    </span>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2 dark:text-white">
+                                    {t('nav_' + activeTab) || (activeTab.charAt(0).toUpperCase() + activeTab.slice(1))}
+                                </h2>
+
+                                {/* Live Indicator & Refresh Controls */}
+                                {(activeTab === 'dashboard' || activeTab === 'fraud' || activeTab === 'audit') && (
+                                    <div className="flex items-center bg-slate-100 rounded-full border border-slate-200 p-0.5 dark:bg-slate-800 dark:border-slate-700">
+                                        <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors duration-300 ${autoRefreshInterval > 0 ? 'bg-green-50 text-green-700 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' : 'text-slate-500'}`}>
+                                            {autoRefreshInterval > 0 && (
+                                                <span className="relative flex h-2 w-2">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                                </span>
+                                            )}
+                                            {autoRefreshInterval > 0 ? 'Live' : 'Paused'}
+                                        </div>
+
+                                        <div className="flex items-center border-l border-slate-300 pl-1 ml-1 dark:border-slate-600">
+                                            <button
+                                                onClick={() => setAutoRefreshInterval(0)}
+                                                className={`p-1.5 rounded-full transition-colors ${autoRefreshInterval === 0 ? 'bg-white shadow-sm text-slate-800 dark:bg-slate-700 dark:text-white' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+                                                title="Pause Auto-Refresh"
+                                            >
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => setAutoRefreshInterval(10)}
+                                                className={`p-1.5 rounded-full transition-colors ${autoRefreshInterval === 10 ? 'bg-white shadow-sm text-green-600 dark:bg-slate-700 dark:text-green-400' : 'text-slate-400 hover:text-green-600 dark:hover:text-green-400'}`}
+                                                title="Refresh Every 10s"
+                                            >
+                                                <span className="text-[10px] font-black">10s</span>
+                                            </button>
+                                            <button
+                                                onClick={() => setAutoRefreshInterval(30)}
+                                                className={`p-1.5 pr-2.5 rounded-full transition-colors ${autoRefreshInterval === 30 ? 'bg-white shadow-sm text-green-600 dark:bg-slate-700 dark:text-green-400' : 'text-slate-400 hover:text-green-600 dark:hover:text-green-400'}`}
+                                                title="Refresh Every 30s"
+                                            >
+                                                <span className="text-[10px] font-black">30s</span>
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
-                            </h2>
+                            </div>
+
                             <p className="text-xs md:text-sm text-slate-500 mt-1 hidden sm:block dark:text-slate-400">Server time: <span className="font-mono">{currentTime}</span></p>
                         </div>
                     </div>
 
                     <div className="flex gap-4 items-center">
+                        {/* Audit Trail - Last Login */}
+                        <div className="hidden md:flex flex-col items-end mr-2">
+                            <span className="text-[10px] text-slate-400 font-medium dark:text-slate-500">Last Login</span>
+                            <span className="text-xs text-slate-600 font-semibold dark:text-slate-300">
+                                {user?.last_login ? new Date(user.last_login).toLocaleString() : 'Just now'}
+                            </span>
+                        </div>
+
                         {/* Bell Icon for Notifications */}
                         <div className="relative" ref={notificationRef}>
                             <div

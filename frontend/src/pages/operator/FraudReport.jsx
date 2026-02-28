@@ -86,7 +86,6 @@ const FraudReport = () => {
                     <div className="flex items-center gap-4">
                         <LanguageSwitcher />
                         <div className="flex items-center gap-2">
-                            <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-600 text-[10px] font-bold border border-blue-200">{t('demo')}</span>
                             <span className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 {t('secure')}

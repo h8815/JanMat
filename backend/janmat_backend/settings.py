@@ -173,8 +173,8 @@ if not DEBUG:
     X_FRAME_OPTIONS = 'DENY'
 
 # JanMat specific settings
-SANDBOX_AUTHORIZATION = config('SANDBOX_AUTHORIZATION', default='')
 SANDBOX_API_KEY = config('SANDBOX_API_KEY', default='')
+SANDBOX_API_SECRET = config('SANDBOX_API_SECRET', default='')
 OTP_EXPIRY_MINUTES = config('OTP_EXPIRY_MINUTES', default=5, cast=int)
 MAX_OTP_ATTEMPTS = config('MAX_OTP_ATTEMPTS', default=3, cast=int)
 BIOMETRIC_HASH_ALGORITHM = config('BIOMETRIC_HASH_ALGORITHM', default='SHA256')
