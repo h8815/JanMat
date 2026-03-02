@@ -100,119 +100,138 @@ const ForcePasswordChange = () => {
     if (!username) return null;
 
     return (
-        <div className="min-h-screen bg-tricolor flex flex-col items-center justify-center p-6 sm:p-12 font-sans overflow-hidden relative">
+        <div className="min-h-screen bg-tricolor relative">
+            <div className="absolute inset-0 bg-black/55"></div>
 
-            {/* Elegant Header Graphic */}
-            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-blue-900/90 to-transparent pointer-events-none"></div>
+            <main className="relative z-10 min-h-screen flex items-center justify-center p-6">
+                <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
 
-            <main className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-8 duration-500 ease-out mt-8">
-
-                {/* Clean, High-Contrast Solid Card */}
-                <div className="bg-white rounded-2xl p-8 sm:p-10 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-slate-100 relative overflow-hidden">
-
-                    <div className="text-center mb-8">
-                        <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4 border border-blue-100 shadow-sm">
-                            <ShieldCheck className="w-8 h-8 text-blue-600" strokeWidth={2} />
-                        </div>
-                        <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight mb-2">Secure Your Account</h1>
-                        <p className="text-slate-500 text-sm sm:text-base leading-relaxed">
+                    {/* Left Side: Branding */}
+                    <div className="md:col-span-1 text-center md:text-left px-6">
+                        <img
+                            src="/assets/images/ashoka.png"
+                            alt="Ashoka Emblem"
+                            className="mx-auto md:mx-0 w-20 h-20 object-contain"
+                            onError={(e) => { e.target.src = 'https://placehold.co/80x80?text=Emblem'; }}
+                        />
+                        <h1 className="mt-4 text-2xl font-semibold text-white">
+                            Secure Your Account
+                        </h1>
+                        <p className="mt-2 text-slate-200 text-sm">
                             For security reasons, you must establish a permanent password before accessing the JanMat portal.
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-6">
-
-                        {/* Current Password */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Current Password</label>
-                            <div className="relative group">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={tempPassword}
-                                    onChange={(e) => setTempPassword(e.target.value)}
-                                    className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 text-lg placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none pr-12"
-                                    placeholder="Enter initial password"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-blue-600 transition-colors"
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* New Password */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">New Password <span className="text-slate-500 font-normal normal-case tracking-normal">(Min 12 keys)</span></label>
-                            <div className="relative group flex flex-col">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={newPassword}
-                                    onChange={handlePasswordChange}
-                                    className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 text-lg font-mono placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none pr-12"
-                                    placeholder="Create strong password"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 px-4 flex items-center text-slate-400 hover:text-blue-600 transition-colors"
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                            </div>
-
-                            {/* Password Strength Indicator */}
-                            {newPassword && (
-                                <div className="mt-4 flex items-center gap-3 animate-in fade-in duration-300 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                    <div className="flex gap-2 h-2.5 w-full max-w-[200px]">
-                                        {[1, 2, 3, 4].map(num => (
-                                            <div
-                                                key={num}
-                                                className={`h-full flex-1 rounded-full transition-all duration-500 ${passwordScore >= num ? getStrengthColor(passwordScore) : 'bg-slate-200'}`}
-                                            ></div>
-                                        ))}
-                                    </div>
-                                    <span className={`text-xs font-black uppercase tracking-wider ${getStrengthColor(passwordScore).replace('bg-', 'text-')}`}>
-                                        {['Weak', 'Fair', 'Good', 'Strong'][passwordScore - 1] || 'Weak'}
-                                    </span>
+                    {/* Right Side: Form */}
+                    <div className="md:col-span-2">
+                        <div className="bg-white rounded-lg p-8 card-shadow border border-slate-200 max-w-xl mx-auto">
+                            <form onSubmit={handleSubmit} noValidate>
+                                <div className="flex items-center gap-3 mb-6">
+                                    <ShieldCheck className="w-6 h-6 text-janmat-blue" />
+                                    <h2 className="text-xl font-bold text-slate-800">Setup New Password</h2>
                                 </div>
-                            )}
+
+                                {/* Current Password */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-slate-700">Temporary Password</label>
+                                    <div className="relative mt-2">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={tempPassword}
+                                            onChange={(e) => setTempPassword(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue outline-none pr-10"
+                                            placeholder="Enter initial password"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-slate-700 transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* New Password */}
+                                <div className="mb-4">
+                                    <label className="block text-sm font-medium text-slate-700">
+                                        New Password <span className="text-slate-500 font-normal ml-1">(Min 12 chars)</span>
+                                    </label>
+                                    <div className="relative mt-2">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={newPassword}
+                                            onChange={handlePasswordChange}
+                                            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue outline-none pr-10 tracking-wider"
+                                            placeholder="Create strong password"
+                                            required
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-slate-700 transition-colors"
+                                        >
+                                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
+
+                                    {/* Password Strength Indicator */}
+                                    {newPassword && (
+                                        <div className="mt-3 flex items-center justify-between">
+                                            <div className="flex gap-1.5 h-1.5 flex-1 max-w-[200px]">
+                                                {[1, 2, 3, 4].map(num => (
+                                                    <div
+                                                        key={num}
+                                                        className={`h-full flex-1 rounded-full transition-all duration-300 ${passwordScore >= num ? getStrengthColor(passwordScore) : 'bg-slate-200'}`}
+                                                    ></div>
+                                                ))}
+                                            </div>
+                                            <span className={`text-xs font-semibold ${getStrengthColor(passwordScore).replace('bg-', 'text-')}`}>
+                                                {['Weak', 'Fair', 'Good', 'Strong'][passwordScore - 1] || 'Weak'}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Confirm Password */}
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-slate-700">Confirm New Password</label>
+                                    <div className="relative mt-2">
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue outline-none tracking-wider"
+                                            placeholder="Match new password"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                {error && (
+                                    <div className="mb-6 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600 flex gap-2 items-start">
+                                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                        <p>{error}</p>
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={loading || passwordScore < 2}
+                                    className="w-full px-4 py-3 bg-janmat-blue text-white font-medium rounded-md hover:bg-janmat-hover focus:ring-2 focus:ring-offset-1 disabled:opacity-50 flex items-center justify-center gap-2 transition-all mt-4"
+                                >
+                                    {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    <span>{loading ? 'Securing Environment...' : 'Set Password & Login'}</span>
+                                </button>
+
+                                <p className="mt-4 text-xs text-slate-500 text-center">
+                                    Ensure your password contains uppercase letters, numbers, and special characters to meet the security policy.
+                                </p>
+                            </form>
                         </div>
+                    </div>
 
-                        {/* Confirm Password */}
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 uppercase tracking-wider mb-2">Confirm New Password</label>
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-3.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 text-lg font-mono placeholder-slate-400 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none"
-                                placeholder="Match new password"
-                                required
-                            />
-                        </div>
-
-                        {error && (
-                            <div className="p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-sm text-red-700 flex gap-3 items-start animate-in slide-in-from-top-2 font-medium">
-                                <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
-                                <p className="leading-snug">{error}</p>
-                            </div>
-                        )}
-
-                        <button
-                            type="submit"
-                            disabled={loading || passwordScore < 2}
-                            className="w-full mt-4 px-6 py-4 bg-blue-600 text-white text-lg font-black tracking-wide uppercase rounded-xl hover:bg-blue-700 focus:ring-4 focus:ring-blue-500/30 disabled:opacity-50 disabled:bg-slate-400 flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-blue-500/25 mt-2"
-                        >
-                            {loading && <Loader2 className="w-6 h-6 animate-spin" />}
-                            <span>{loading ? 'Securing Environment...' : 'Establish Secure Connection'}</span>
-                        </button>
-
-                    </form>
                 </div>
             </main>
         </div>
