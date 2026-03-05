@@ -47,10 +47,13 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - janmat-network
-    extra_hosts:
-      - "api.sandbox.co.in:13.127.77.113"
+    # extra_hosts: # For Getting IP [ping api.sandbox.co.in]
+    #   - "api.sandbox.co.in:13.205.205.155"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
       interval: 30s
