@@ -40,8 +40,7 @@ const VoterVerification = () => {
     const [visualChecked, setVisualChecked] = useState(false);
 
     // Biometric
-    const [scanState, setScanState] = useState('idle'); // idle | scanning | success | duplicate | failed | timeout | poor_quality
-    const [scanQuality, setScanQuality] = useState(null);
+    const [scanState, setScanState] = useState('idle'); // idle | scanning | success | duplicate | failed | timeout
     const [hardwareStatus, setHardwareStatus] = useState('Offline');
     const [duplicateInfo, setDuplicateInfo] = useState(null);
     const [retryCount, setRetryCount] = useState(0);
@@ -204,55 +203,32 @@ const VoterVerification = () => {
         }
 
         setScanState('scanning');
-        setScanQuality(null);
         setScanError('');
 
         let isTimedOut = false;
-        // 8-second hard timeout
+        // Hard 8-second timeout → Unable to Detect
         scanTimeoutRef.current = setTimeout(() => {
             isTimedOut = true;
             setScanState('timeout');
-            setScanQuality(null);
             setRetryCount(prev => prev + 1);
             setLoading(false);
         }, 8000);
 
-        // Live quality fluctuations
-        let poorCount = 0;
-        const qualityInterval = setInterval(() => {
-            if (isTimedOut) { clearInterval(qualityInterval); return; }
-            const q = Math.random();
-            const quality = q < 0.25 ? 'Poor' : q < 0.65 ? 'Good' : 'Excellent';
-            setScanQuality(quality);
-            if (quality === 'Poor') poorCount++;
-        }, 500);
-
-        // Random 5-9s scan. If > 8s, timeout fires first.
-        const scanDuration = Math.floor(Math.random() * 4000) + 5000;
+        // Random scan duration: 5000–7800ms (always finishes before 8s timeout)
+        const scanDuration = Math.floor(Math.random() * 2801) + 5000;
         await new Promise(r => setTimeout(r, scanDuration));
 
         if (isTimedOut) return;
 
-        clearInterval(qualityInterval);
         clearTimeout(scanTimeoutRef.current);
-
-        // Abort early if quality was consistently poor (> 6 poor readings)
-        if (poorCount >= 6) {
-            setScanState('poor_quality');
-            setScanQuality('Poor');
-            setRetryCount(prev => prev + 1);
-            setLoading(false);
-            return;
-        }
 
         setLoading(true);
         try {
-            const finalQualityScore = Math.floor(Math.random() * 15) + 85;
-            setScanQuality(finalQualityScore > 92 ? 'Excellent' : 'Good');
+            const qualityScore = Math.floor(Math.random() * 15) + 85;
             const biometricData = `fp_${aadhaar.replace(/\s/g, '')}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
             const res = await axios.post('/verification/biometric-scan/', {
                 biometric_data: biometricData,
-                quality_score: finalQualityScore
+                quality_score: qualityScore
             });
             if (res.data.status === 'fraud') {
                 setScanState('duplicate');
@@ -270,7 +246,6 @@ const VoterVerification = () => {
 
     const handleRetryScan = () => {
         setScanState('idle');
-        setScanQuality(null);
         setScanError('');
     };
 
@@ -288,7 +263,6 @@ const VoterVerification = () => {
         setVoter(null);
         setVisualChecked(false);
         setScanState('idle');
-        setScanQuality(null);
         setScanError('');
         setRetryCount(0);
         setDuplicateInfo(null);
