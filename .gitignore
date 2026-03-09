@@ -1,0 +1,50 @@
+# Custom backend exclusions
+backend/venv/
+backend/.env
+backend/janmat.log
+backend/staticfiles/
+backend/media/
+backend/*.sqlite3
+backend/db.sqlite3
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Custom frontend exclusions
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Docker & Database
+db-data/
+postgres-data/
+
+# Root Environment Variables
+.env
+.env.local
+
+# OS Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and Editor Directories
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temporary Files
+*.bak
+*.tmp
+*.log
