@@ -3,12 +3,13 @@ import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from '../../api/axios';
 import {
-    LogOut, Lock, Shield, ArrowRight, AlertTriangle,
+    LogOut, Shield, AlertTriangle,
     User, Clock, MapPin, CheckCircle2, FileWarning,
     Activity, Fingerprint
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../../components/common/LanguageSwitcher';
+import FontSizeSwitcher from '../../components/common/FontSizeSwitcher';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 import EmptyState from '../../components/common/EmptyState';
@@ -54,7 +55,6 @@ const OperatorDashboard = () => {
                     setLoading(false);
                 }
             }
-
             const res = await axios.get('/auth/operator/stats/');
             setStats(res.data);
             sessionStorage.setItem('operatorDashStats', JSON.stringify(res.data));
@@ -77,7 +77,7 @@ const OperatorDashboard = () => {
     const operatorName = user?.full_name || user?.name || 'Operator';
 
     return (
-        <div className="min-h-screen bg-[#f0f2f5]">
+        <div className="min-h-screen bg-[#f4f6fa]">
             {/* Tricolor bar */}
             <div className="h-1.5 w-full flex">
                 <div className="flex-1 bg-[#FF9933]" />
@@ -86,7 +86,7 @@ const OperatorDashboard = () => {
             </div>
 
             {/* Header */}
-            <header className="bg-white border-b border-slate-200 shadow-sm">
+            <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-30">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <img
@@ -96,17 +96,19 @@ const OperatorDashboard = () => {
                             onError={(e) => { e.target.src = 'https://placehold.co/36x36?text=🏛️'; }}
                         />
                         <div className="border-l border-slate-200 pl-3">
-                            <h1 className="text-sm font-bold text-slate-800 leading-tight tracking-tight">
+                            <h1 className="text-sm font-bold text-slate-800 leading-tight tracking-tight uppercase">
                                 {t('JanMat')} — {t('operator_console')}
                             </h1>
-                            <p className="text-[10px] text-slate-400 leading-tight">
+                            <p className="text-[10px] items-center text-slate-500 font-semibold tracking-wider leading-tight">
                                 {t('ECI')}
                             </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3 text-xs">
+                        <FontSizeSwitcher />
+                        <div className="h-4 w-px bg-slate-200" />
                         <LanguageSwitcher />
-                        <span className="hidden sm:inline text-slate-400 font-mono">{currentTime}</span>
+                        <span className="hidden sm:inline text-slate-700 font-bold font-mono tracking-widest">{currentTime}</span>
                         <div className="h-4 w-px bg-slate-200 hidden sm:block" />
                         <button
                             onClick={logout}
@@ -118,100 +120,60 @@ const OperatorDashboard = () => {
                     </div>
                 </div>
             </header>
+
             {/* Main Content */}
             <main className="max-w-6xl mx-auto p-4 sm:p-6">
                 <Breadcrumbs />
 
-                {/* Operator Identity Banner */}
-                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm mb-5">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                {/* Operator Identity Banner — Dark Slate */}
+                <div className="bg-[#1e293b] rounded-xl border border-slate-700 p-5 shadow-[0_8px_30px_rgb(0,0,0,0.12)] mb-5 relative overflow-hidden">
+                    {/* Decorative blobs */}
+                    <div className="absolute top-0 right-0 -mt-4 -mr-4 w-32 h-32 bg-slate-600 rounded-full mix-blend-multiply filter blur-2xl opacity-50"></div>
+                    <div className="absolute -bottom-8 right-20 w-32 h-32 bg-slate-500 rounded-full mix-blend-multiply filter blur-2xl opacity-50"></div>
+
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative z-10">
                         <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-janmat-blue/10 flex items-center justify-center">
-                                <User className="w-6 h-6 text-janmat-blue" />
+                            <div className="w-14 h-14 rounded-full bg-slate-800 border-2 border-slate-600 flex items-center justify-center shadow-inner">
+                                <User className="w-7 h-7 text-slate-300" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-bold text-slate-800">{operatorName}</h2>
-                                <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                                    <span className="flex items-center gap-1">
-                                        <MapPin className="w-3 h-3" /> Booth {boothId}
+                                <h2 className="text-xl font-bold text-white tracking-tight">{operatorName}</h2>
+                                <div className="flex items-center gap-4 text-xs text-slate-300 font-medium mt-1.5 uppercase tracking-wider">
+                                    <span className="flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5 text-slate-500" /> Booth {boothId}
                                     </span>
-                                    <span className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3" /> {currentDate}
+                                    <span className="flex items-center gap-1.5">
+                                        <Clock className="w-3.5 h-3.5 text-slate-500" /> {currentDate}
                                     </span>
                                 </div>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <span className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${boothOpen
-                                ? 'bg-green-100 text-green-700 border border-green-200'
-                                : 'bg-amber-100 text-amber-700 border border-amber-200'
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded border-2 text-[10px] font-bold uppercase tracking-widest shadow-inner ${boothOpen
+                                ? 'bg-slate-900 border-green-500/50 text-green-400'
+                                : 'bg-slate-900 border-amber-500/50 text-amber-400'
                                 }`}>
-                                <span className={`w-2 h-2 rounded-full ${boothOpen ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
+                                <span className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] ${boothOpen ? 'bg-green-500 animate-pulse' : 'bg-amber-400'}`} />
                                 {boothOpen ? t('booth_active') : t('booth_closed')}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* LIVE STATS TICKER */}
-                <div className="bg-slate-800 rounded-xl p-3 mb-5 shadow-sm text-white flex flex-col sm:flex-row sm:items-center justify-between overflow-hidden relative gap-3 sm:gap-0">
-                    {/* Subtle pulsing background effect */}
-                    <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-green-500/20 to-transparent animate-pulse pointer-events-none"></div>
-
-                    <div className="flex items-center gap-3 z-10 flex-wrap">
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-slate-600 bg-slate-700/50 text-[10px] font-bold tracking-wider uppercase text-green-400">
-                            <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                            </span>
-                            Live System
-                        </div>
-                        <div className="h-4 w-px bg-slate-600 hidden sm:block"></div>
-                        <div className="flex flex-col">
-                            <span className="text-xs sm:text-sm text-slate-300 font-medium">Session Overview</span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                                Login: {user?.last_login ? new Date(user.last_login).toLocaleTimeString() : 'Just now'}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4 sm:gap-6 z-10 overflow-x-auto pb-1 sm:pb-0 custom-scrollbar">
-                        <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center gap-1 sm:gap-2 whitespace-nowrap">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">Target</span>
-                            <span className="text-lg font-bold text-slate-300 font-mono">~300</span>
-                        </div>
-                        <div className="h-6 w-px bg-slate-700"></div>
-                        <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center gap-1 sm:gap-2 whitespace-nowrap">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">Verified Today</span>
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-lg font-bold text-white font-mono">{stats.today_verifications || 0}</span>
-                                <span className="text-[10px] text-green-400 font-bold">↑</span>
                             </div>
                         </div>
-                        <div className="h-6 w-px bg-slate-700"></div>
-                        <div className="flex flex-col items-start sm:items-end sm:flex-row sm:items-center gap-1 sm:gap-2 whitespace-nowrap">
-                            <span className="text-[10px] text-slate-400 uppercase tracking-wide">Fraud Blocked</span>
-                            <span className={`text-lg font-bold font-mono ${stats.fraud_alerts_today > 0 ? 'text-red-400' : 'text-slate-300'}`}>
-                                {stats.fraud_alerts_today || 0}
-                            </span>
-                        </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                     {/* LEFT: 2 cols */}
                     <div className="lg:col-span-2 space-y-5">
                         {/* Booth Control */}
                         <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                            <div className="flex items-start gap-3 mb-4">
-                                <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                                    <Activity className="w-5 h-5 text-slate-600" />
+                            <div className="flex items-start gap-4 mb-5">
+                                <div className="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+                                    <Activity className="w-6 h-6 text-slate-800" />
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-slate-800 text-base">
+                                    <h3 className="font-bold text-slate-800 text-lg tracking-tight">
                                         {t('booth_control_title')}
                                     </h3>
-                                    <p className="text-sm text-slate-500 mt-0.5">
+                                    <p className="text-sm font-medium text-slate-700 mt-1">
                                         {!boothOpen
                                             ? t('booth_control_desc_closed')
                                             : t('booth_control_desc_active')
@@ -222,15 +184,15 @@ const OperatorDashboard = () => {
                             {!boothOpen ? (
                                 <button
                                     onClick={() => setBoothOpen(true)}
-                                    className="w-full sm:w-auto px-6 py-3 bg-janmat-blue text-white font-bold rounded-lg hover:bg-janmat-hover transition-all text-sm shadow-sm"
+                                    className="w-full sm:w-auto px-8 py-3.5 bg-janmat-blue text-white font-bold tracking-wide rounded-lg hover:bg-janmat-hover transition-all text-sm flex items-center justify-center gap-2 shadow-[0_4px_0_rgb(29,78,216)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(29,78,216)] active:translate-y-[4px] active:shadow-none border border-blue-500 uppercase"
                                 >
                                     {t('btn_open_booth')}
                                 </button>
                             ) : (
-                                <div className="flex flex-wrap gap-3">
+                                <div className="flex flex-wrap gap-4">
                                     <button
                                         onClick={() => navigate('/operator/verify')}
-                                        className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-3.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-all text-sm shadow-sm"
+                                        className="flex-1 min-w-[200px] flex items-center justify-center gap-2 px-6 py-4 bg-green-600 text-white font-bold tracking-wide rounded-lg hover:bg-green-700 transition-all text-sm shadow-[0_4px_0_rgb(21,128,61)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(21,128,61)] active:translate-y-[4px] active:shadow-none border border-green-500 uppercase"
                                     >
                                         <Fingerprint className="w-5 h-5" />
                                         {t('btn_start_verification')}
@@ -245,7 +207,7 @@ const OperatorDashboard = () => {
                                                 onConfirm: () => setBoothOpen(false)
                                             });
                                         }}
-                                        className="px-5 py-3.5 border border-red-300 text-red-600 font-semibold rounded-lg hover:bg-red-50 transition-all text-sm"
+                                        className="px-6 py-4 bg-white text-red-600 font-bold tracking-wide rounded-lg hover:bg-red-50 transition-all text-sm shadow-[0_4px_0_rgb(252,165,165)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(252,165,165)] active:translate-y-[4px] active:shadow-none border border-red-200 uppercase"
                                     >
                                         {t('btn_close_booth')}
                                     </button>
@@ -258,80 +220,91 @@ const OperatorDashboard = () => {
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <button
                                     onClick={() => navigate('/operator/report-fraud')}
-                                    className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:border-red-300 hover:bg-red-50/50 transition-all text-left group"
+                                    className="bg-white rounded-xl border-2 border-slate-200 p-5 shadow-sm hover:border-red-400 hover:bg-red-50/50 transition-all text-left group hover:-translate-y-1 hover:shadow-md"
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                                            <FileWarning className="w-5 h-5 text-red-600" />
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white group-hover:border-red-600 transition-colors shadow-inner">
+                                            <FileWarning className="w-6 h-6 text-red-600 group-hover:text-white transition-colors" />
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-slate-800 text-sm">{t('report_incident')}</h4>
-                                            <p className="text-xs text-slate-500 mt-0.5">{t('report_incident_desc')}</p>
+                                            <h4 className="font-bold text-slate-800 text-sm tracking-tight group-hover:text-red-700 transition-colors">{t('report_incident')}</h4>
+                                            <p className="text-xs font-semibold text-slate-500 mt-0.5">{t('report_incident_desc')}</p>
                                         </div>
                                     </div>
                                 </button>
-                                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm text-left">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                                            <Shield className="w-5 h-5 text-blue-600" />
+                                <button
+                                    className="bg-white rounded-xl border-2 border-slate-200 p-5 shadow-sm hover:border-blue-400 hover:bg-blue-50/50 transition-all text-left group hover:-translate-y-1 hover:shadow-md"
+                                >
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-xl bg-blue-100 border border-blue-200 flex items-center justify-center group-hover:bg-blue-600 group-hover:border-blue-700 transition-colors shadow-inner">
+                                            <Shield className="w-6 h-6 text-blue-700 group-hover:text-white transition-colors" />
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-slate-800 text-sm">{t('support')}</h4>
-                                            <p className="text-xs text-slate-500 mt-0.5">{t('support_desc')}</p>
+                                            <h4 className="font-bold text-slate-800 text-sm tracking-tight group-hover:text-blue-700 transition-colors">{t('support')}</h4>
+                                            <p className="text-xs font-semibold text-slate-500 mt-0.5">{t('support_desc')}</p>
                                         </div>
                                     </div>
-                                </div>
+                                </button>
                             </div>
                         )}
                     </div>
 
-                    {/* RIGHT: Stats */}
+                    {/* RIGHT: Stats + Recent */}
                     <div className="space-y-5">
+                        {/* Today's Activity */}
                         {loading ? (
-                            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+                            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
                                 <h3 className="font-bold text-slate-800 text-sm mb-4 uppercase tracking-wider">{t('todays_activity')}</h3>
                                 <SkeletonLoader type="text" count={3} />
                             </div>
                         ) : (
-                            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                                <h3 className="font-bold text-slate-800 text-sm mb-4 uppercase tracking-wider">{t('todays_activity')}</h3>
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
-                                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                            <div className="bg-white rounded-xl border-t-4 border-t-janmat-blue border-x border-b border-slate-200 p-6 shadow-sm relative overflow-hidden">
+                                <Activity className="absolute -right-6 -bottom-6 w-32 h-32 text-slate-50 opacity-50 pointer-events-none" />
+                                <h3 className="font-bold text-slate-800 text-sm mb-6 uppercase tracking-widest relative z-10">{t('todays_activity')}</h3>
+                                <div className="space-y-6 relative z-10">
+                                    <div className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center group-hover:bg-green-100 transition-colors">
+                                                <CheckCircle2 className="w-6 h-6 text-green-600" />
                                             </div>
-                                            <span className="text-sm text-slate-600">{t('stat_verified')}</span>
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('stat_verified')}</p>
+                                                <p className="text-sm font-semibold text-slate-700 group-hover:text-green-700 transition-colors">Citizens Verified</p>
+                                            </div>
                                         </div>
-                                        <span className="text-2xl font-bold text-slate-800">{stats.today_verifications}</span>
+                                        <span className="text-4xl font-black text-slate-800 tracking-tighter">{stats.today_verifications}</span>
                                     </div>
-                                    <div className="h-px bg-slate-100" />
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center">
-                                                <Clock className="w-4 h-4 text-amber-600" />
+                                    <div className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                                                <Clock className="w-6 h-6 text-amber-600" />
                                             </div>
-                                            <span className="text-sm text-slate-600">{t('stat_pending')}</span>
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('stat_pending')}</p>
+                                                <p className="text-sm font-semibold text-slate-700 group-hover:text-amber-700 transition-colors">Awaiting Review</p>
+                                            </div>
                                         </div>
-                                        <span className="text-2xl font-bold text-slate-800">{stats.pending_fraud_alerts}</span>
+                                        <span className="text-3xl font-bold text-slate-700 tracking-tighter">{stats.pending_fraud_alerts}</span>
                                     </div>
-                                    <div className="h-px bg-slate-100" />
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2.5">
-                                            <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                                                <AlertTriangle className="w-4 h-4 text-red-600" />
+                                    <div className="flex items-center justify-between group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                                                <AlertTriangle className="w-6 h-6 text-red-600" />
                                             </div>
-                                            <span className="text-sm text-slate-600">{t('stat_fraud_flags')}</span>
+                                            <div>
+                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('stat_fraud_flags')}</p>
+                                                <p className="text-sm font-semibold text-slate-700 group-hover:text-red-700 transition-colors">Fraud Alerts</p>
+                                            </div>
                                         </div>
-                                        <span className="text-2xl font-bold text-red-600">{stats.fraud_alerts_today}</span>
+                                        <span className="text-3xl font-bold text-red-600 tracking-tighter">{stats.fraud_alerts_today}</span>
                                     </div>
                                 </div>
                             </div>
                         )}
 
-                        {/* Recent Activity */}
-                        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                            <h3 className="font-bold text-slate-800 text-sm mb-3 uppercase tracking-wider">{t('recent_verifications')}</h3>
+                        {/* Recent Verifications */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                            <h3 className="font-bold text-slate-800 text-sm mb-4 uppercase tracking-widest">{t('recent_verifications')}</h3>
                             {!stats.recent_verifications || stats.recent_verifications.length === 0 ? (
                                 <EmptyState
                                     icon={Clock}
@@ -339,11 +312,14 @@ const OperatorDashboard = () => {
                                     message={t('no_recent_verifications_desc') || 'Verifications performed during this session will appear here.'}
                                 />
                             ) : (
-                                <div className="space-y-2.5">
+                                <div className="space-y-3">
                                     {stats.recent_verifications.slice(0, 4).map((v, i) => (
-                                        <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-50 last:border-0">
-                                            <span className="text-slate-600 font-medium">{v.aadhaar_masked || `XXXX-${i}`}</span>
-                                            <span className="text-slate-400 font-mono">{v.time || '—'}</span>
+                                        <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100 hover:border-slate-300 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+                                                <span className="text-slate-800 font-bold font-mono tracking-widest text-sm">{v.aadhaar_masked || `XXXX-${i}`}</span>
+                                            </div>
+                                            <span className="text-slate-500 font-medium text-xs bg-white px-2 py-1 rounded shadow-sm border border-slate-100">{v.time || '—'}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -353,7 +329,7 @@ const OperatorDashboard = () => {
                 </div>
 
                 {/* Security Footer */}
-                <div className="mt-8 pt-4 border-t border-slate-200 flex items-center gap-2 text-[11px] text-slate-400">
+                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center gap-2 text-[11px] text-slate-500">
                     <Shield className="w-3.5 h-3.5 shrink-0" />
                     <span>{t('security_warning')}</span>
                 </div>
