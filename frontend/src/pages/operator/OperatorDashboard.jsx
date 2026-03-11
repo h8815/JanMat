@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import FontSizeSwitcher from '../../components/common/FontSizeSwitcher';
+import SystemStatus from '../../components/common/SystemStatus';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 import EmptyState from '../../components/common/EmptyState';
@@ -105,6 +106,7 @@ const OperatorDashboard = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-3 text-xs">
+                        <SystemStatus biometricStatus="Ready" />
                         <FontSizeSwitcher />
                         <div className="h-4 w-px bg-slate-200" />
                         <LanguageSwitcher />
@@ -215,9 +217,91 @@ const OperatorDashboard = () => {
                             )}
                         </div>
 
+
+                        {/* Today's Activity (Moved Left & Horizontal) */}
+                        {loading ? (
+                            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
+                                <h3 className="font-bold text-slate-800 text-sm mb-4 uppercase tracking-wider">{t('todays_activity')}</h3>
+                                <SkeletonLoader type="text" count={3} />
+                            </div>
+                        ) : (
+                            <div className="bg-white rounded-xl border-t-4 border-t-janmat-blue border-x border-b border-slate-200 p-6 shadow-sm relative overflow-hidden">
+                                <Activity className="absolute -right-6 -bottom-6 w-32 h-32 text-slate-50 opacity-50 pointer-events-none" />
+                                <h3 className="font-bold text-slate-800 text-sm mb-6 uppercase tracking-widest relative z-10">{t('todays_activity')}</h3>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 relative z-10">
+                                    <div className="flex flex-col group p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-green-200 hover:bg-green-50/30 transition-colors">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-lg bg-green-100 border border-green-200 flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                                                <CheckCircle2 className="w-5 h-5 text-green-700" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t('stat_verified')}</p>
+                                                <p className="text-xs font-semibold text-slate-700 group-hover:text-green-800 transition-colors leading-none">Citizens</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-3xl font-black text-slate-800 tracking-tighter mt-auto">{stats.today_verifications}</span>
+                                    </div>
+
+                                    <div className="flex flex-col group p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-amber-200 hover:bg-amber-50/30 transition-colors">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center group-hover:bg-amber-200 transition-colors">
+                                                <Clock className="w-5 h-5 text-amber-700" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t('stat_pending')}</p>
+                                                <p className="text-xs font-semibold text-slate-700 group-hover:text-amber-800 transition-colors leading-none">Review</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-3xl font-bold text-slate-700 tracking-tighter mt-auto">{stats.pending_fraud_alerts}</span>
+                                    </div>
+
+                                    <div className="flex flex-col group p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-red-200 hover:bg-red-50/30 transition-colors">
+                                        <div className="flex items-center gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-lg bg-red-100 border border-red-200 flex items-center justify-center group-hover:bg-red-200 transition-colors">
+                                                <AlertTriangle className="w-5 h-5 text-red-700" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">{t('stat_fraud_flags')}</p>
+                                                <p className="text-xs font-semibold text-slate-700 group-hover:text-red-800 transition-colors leading-none">Alerts</p>
+                                            </div>
+                                        </div>
+                                        <span className="text-3xl font-bold text-red-600 tracking-tighter mt-auto">{stats.fraud_alerts_today}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT: Recent Verifications */}
+                    <div className="space-y-5">
+                        {/* Recent Verifications */}
+                        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                            <h3 className="font-bold text-slate-800 text-sm mb-4 uppercase tracking-widest">{t('recent_verifications')}</h3>
+                            {!stats.recent_verifications || stats.recent_verifications.length === 0 ? (
+                                <EmptyState
+                                    icon={Clock}
+                                    title={t('no_recent_verifications') || 'No Recent Activity'}
+                                    message={t('no_recent_verifications_desc') || 'Verifications performed during this session will appear here.'}
+                                />
+                            ) : (
+                                <div className="space-y-3">
+                                    {stats.recent_verifications.slice(0, 10).map((v, i) => (
+                                        <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100 hover:border-slate-300 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
+                                                <span className="text-slate-800 font-bold font-mono tracking-widest text-sm">{v.aadhaar_masked || `XXXX-${i}`}</span>
+                                            </div>
+                                            <span className="text-slate-500 font-medium text-xs bg-white px-2 py-1 rounded shadow-sm border border-slate-100">{v.time || '—'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         {/* Quick Actions */}
                         {boothOpen && (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 gap-4">
                                 <button
                                     onClick={() => navigate('/operator/report-fraud')}
                                     className="bg-white rounded-xl border-2 border-slate-200 p-5 shadow-sm hover:border-red-400 hover:bg-red-50/50 transition-all text-left group hover:-translate-y-1 hover:shadow-md"
@@ -247,84 +331,7 @@ const OperatorDashboard = () => {
                                 </button>
                             </div>
                         )}
-                    </div>
 
-                    {/* RIGHT: Stats + Recent */}
-                    <div className="space-y-5">
-                        {/* Today's Activity */}
-                        {loading ? (
-                            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
-                                <h3 className="font-bold text-slate-800 text-sm mb-4 uppercase tracking-wider">{t('todays_activity')}</h3>
-                                <SkeletonLoader type="text" count={3} />
-                            </div>
-                        ) : (
-                            <div className="bg-white rounded-xl border-t-4 border-t-janmat-blue border-x border-b border-slate-200 p-6 shadow-sm relative overflow-hidden">
-                                <Activity className="absolute -right-6 -bottom-6 w-32 h-32 text-slate-50 opacity-50 pointer-events-none" />
-                                <h3 className="font-bold text-slate-800 text-sm mb-6 uppercase tracking-widest relative z-10">{t('todays_activity')}</h3>
-                                <div className="space-y-6 relative z-10">
-                                    <div className="flex items-center justify-between group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-green-50 border border-green-200 flex items-center justify-center group-hover:bg-green-100 transition-colors">
-                                                <CheckCircle2 className="w-6 h-6 text-green-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('stat_verified')}</p>
-                                                <p className="text-sm font-semibold text-slate-700 group-hover:text-green-700 transition-colors">Citizens Verified</p>
-                                            </div>
-                                        </div>
-                                        <span className="text-4xl font-black text-slate-800 tracking-tighter">{stats.today_verifications}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                                                <Clock className="w-6 h-6 text-amber-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('stat_pending')}</p>
-                                                <p className="text-sm font-semibold text-slate-700 group-hover:text-amber-700 transition-colors">Awaiting Review</p>
-                                            </div>
-                                        </div>
-                                        <span className="text-3xl font-bold text-slate-700 tracking-tighter">{stats.pending_fraud_alerts}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                                                <AlertTriangle className="w-6 h-6 text-red-600" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-0.5">{t('stat_fraud_flags')}</p>
-                                                <p className="text-sm font-semibold text-slate-700 group-hover:text-red-700 transition-colors">Fraud Alerts</p>
-                                            </div>
-                                        </div>
-                                        <span className="text-3xl font-bold text-red-600 tracking-tighter">{stats.fraud_alerts_today}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Recent Verifications */}
-                        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                            <h3 className="font-bold text-slate-800 text-sm mb-4 uppercase tracking-widest">{t('recent_verifications')}</h3>
-                            {!stats.recent_verifications || stats.recent_verifications.length === 0 ? (
-                                <EmptyState
-                                    icon={Clock}
-                                    title={t('no_recent_verifications') || 'No Recent Activity'}
-                                    message={t('no_recent_verifications_desc') || 'Verifications performed during this session will appear here.'}
-                                />
-                            ) : (
-                                <div className="space-y-3">
-                                    {stats.recent_verifications.slice(0, 4).map((v, i) => (
-                                        <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100 hover:border-slate-300 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div>
-                                                <span className="text-slate-800 font-bold font-mono tracking-widest text-sm">{v.aadhaar_masked || `XXXX-${i}`}</span>
-                                            </div>
-                                            <span className="text-slate-500 font-medium text-xs bg-white px-2 py-1 rounded shadow-sm border border-slate-100">{v.time || '—'}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </div>
 

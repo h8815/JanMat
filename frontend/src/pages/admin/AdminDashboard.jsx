@@ -23,6 +23,8 @@ import { Toaster } from 'react-hot-toast';
 import { useNotifications } from '../../context/NotificationContext';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../../components/common/LanguageSwitcher';
+import SystemStatus from '../../components/common/SystemStatus';
+import FontSizeSwitcher from '../../components/common/FontSizeSwitcher';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 import CustomDatePicker from '../../components/common/CustomDatePicker';
@@ -650,8 +652,16 @@ const AdminDashboard = () => {
                     </div>
 
                     <div className="flex gap-4 items-center">
+                        {/* Global Controls */}
+                        <div className="hidden sm:flex items-center gap-2 md:gap-3 mr-2">
+                            <SystemStatus biometricStatus="N/A" />
+                            <FontSizeSwitcher />
+                            <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
+                            <LanguageSwitcher />
+                        </div>
+
                         {/* Audit Trail - Last Login */}
-                        <div className="hidden md:flex flex-col items-end mr-2">
+                        <div className="hidden md:flex flex-col items-end mr-2 pl-2 border-l border-slate-200 dark:border-slate-700">
                             <span className="text-[10px] text-slate-400 font-medium dark:text-slate-500">Last Login</span>
                             <span className="text-xs text-slate-600 font-semibold dark:text-slate-300">
                                 {user?.last_login ? new Date(user.last_login).toLocaleString() : 'Just now'}

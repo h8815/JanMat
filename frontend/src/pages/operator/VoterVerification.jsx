@@ -4,12 +4,13 @@ import { useAuth } from '../../context/AuthContext';
 import axios from '../../api/axios';
 import {
     CheckCircle2, AlertTriangle, Loader2,
-    Shield, ArrowLeft
+    Shield, ArrowLeft, User, Fingerprint, Activity
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import FontSizeSwitcher from '../../components/common/FontSizeSwitcher';
+import SystemStatus from '../../components/common/SystemStatus';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 
 /*
@@ -18,6 +19,45 @@ import Breadcrumbs from '../../components/common/Breadcrumbs';
  * Two-column layout: Left = Action, Right = Voter Preview / Confirmation
  * Steps: 1) Aadhaar+OTP  2) Visual+Biometric  3) Done
  */
+
+// ─── HEADER COMPONENT (Extracted to prevent remounts) ───
+const VerificationHeader = ({ operatorName, boothId, t, user, hardwareStatus }) => (
+    <>
+        <div className="h-1.5 w-full flex">
+            <div className="flex-1 bg-[#FF9933]" />
+            <div className="flex-1 bg-white" />
+            <div className="flex-1 bg-[#138808]" />
+        </div>
+        <header className="bg-white border-b border-slate-200 shadow-sm relative z-50">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <img src="/assets/images/ashoka-black.png" alt="Emblem" className="w-8 h-8 object-contain"
+                        onError={e => { e.target.src = 'https://placehold.co/32x32?text=🏛️'; }} />
+                    <div className="border-l border-slate-200 pl-3">
+                        <p className="text-sm font-bold text-slate-800">{operatorName} — Booth {boothId}</p>
+                        <p className="text-[10px] text-slate-400">{t('ECI')} — {t('JanMat')}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="hidden md:flex flex-col items-end mr-4">
+                        <span className="text-[10px] text-slate-400 font-medium">Last Login</span>
+                        <span className="text-xs text-slate-600 font-semibold">{user?.last_login ? new Date(user.last_login).toLocaleString() : 'Just now'}</span>
+                    </div>
+                    <SystemStatus biometricStatus={hardwareStatus} />
+                    <FontSizeSwitcher />
+                    <div className="h-4 w-px bg-slate-200" />
+                    <LanguageSwitcher />
+                    <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {t('secure')}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </header>
+    </>
+);
 
 const VoterVerification = () => {
     const { t, i18n } = useTranslation();
@@ -210,12 +250,13 @@ const VoterVerification = () => {
         scanTimeoutRef.current = setTimeout(() => {
             isTimedOut = true;
             setScanState('timeout');
+            setScanError('Unable to Detect');
             setRetryCount(prev => prev + 1);
             setLoading(false);
         }, 8000);
 
-        // Random scan duration: 5000–7800ms (always finishes before 8s timeout)
-        const scanDuration = Math.floor(Math.random() * 2801) + 5000;
+        // Random scan duration: 5000–8000ms
+        const scanDuration = Math.floor(Math.random() * 3001) + 5000;
         await new Promise(r => setTimeout(r, scanDuration));
 
         if (isTimedOut) return;
@@ -224,11 +265,9 @@ const VoterVerification = () => {
 
         setLoading(true);
         try {
-            const qualityScore = Math.floor(Math.random() * 15) + 85;
             const biometricData = `fp_${aadhaar.replace(/\s/g, '')}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
             const res = await axios.post('/verification/biometric-scan/', {
-                biometric_data: biometricData,
-                quality_score: qualityScore
+                biometric_data: biometricData
             });
             if (res.data.status === 'fraud') {
                 setScanState('duplicate');
@@ -271,7 +310,7 @@ const VoterVerification = () => {
     };
 
     // ─── AADHAAR CARD UI ───
-    const AadhaarCard = ({ size = 'normal' }) => {
+    const renderAadhaarCard = (size = 'normal') => {
         if (!voter) return null;
         const isSmall = size === 'small';
         return (
@@ -339,44 +378,6 @@ const VoterVerification = () => {
 
     const operatorName = user?.full_name || user?.name || 'Operator';
 
-    // ─── HEADER (shared across all phases) ───
-    const Header = () => (
-        <>
-            <div className="h-1.5 w-full flex">
-                <div className="flex-1 bg-[#FF9933]" />
-                <div className="flex-1 bg-white" />
-                <div className="flex-1 bg-[#138808]" />
-            </div>
-            <header className="bg-white border-b border-slate-200 shadow-sm">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <img src="/assets/images/ashoka-black.png" alt="Emblem" className="w-8 h-8 object-contain"
-                            onError={e => { e.target.src = 'https://placehold.co/32x32?text=🏛️'; }} />
-                        <div className="border-l border-slate-200 pl-3">
-                            <p className="text-sm font-bold text-slate-800">{operatorName} — Booth {boothId}</p>
-                            <p className="text-[10px] text-slate-400">{t('ECI')} — {t('JanMat')}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="hidden md:flex flex-col items-end mr-4">
-                            <span className="text-[10px] text-slate-400 font-medium">Last Login</span>
-                            <span className="text-xs text-slate-600 font-semibold">{user?.last_login ? new Date(user.last_login).toLocaleString() : 'Just now'}</span>
-                        </div>
-                        <FontSizeSwitcher />
-                        <div className="h-4 w-px bg-slate-200" />
-                        <LanguageSwitcher />
-                        <div className="flex items-center gap-2">
-                            <span className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                {t('secure')}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </header>
-        </>
-    );
-
     // =================================================================
     // PHASE: AADHAAR + OTP  (Left column) + Preview (Right column)
     // =================================================================
@@ -384,9 +385,9 @@ const VoterVerification = () => {
         const hasVoter = !!voter;
         const alreadyVoted = voter?.has_voted || fraudAlert?.type === 'already_voted';
         return (
-            <div className="min-h-screen bg-[#f4f6fa]">
+            <div className="min-h-screen bg-[#f4f6fa] flex flex-col items-stretch">
                 <Toaster position="top-center" />
-                <Header />
+                <VerificationHeader operatorName={operatorName} boothId={boothId} t={t} user={user} hardwareStatus={hardwareStatus} />
 
                 <main className="max-w-5xl mx-auto p-4 sm:p-6 mt-4">
                     <Breadcrumbs />
@@ -488,7 +489,7 @@ const VoterVerification = () => {
 
                             {hasVoter ? (
                                 <>
-                                    <AadhaarCard />
+                                    {renderAadhaarCard('normal')}
 
                                     {/* Voter Status */}
                                     <div className="mt-4 text-center">
@@ -575,312 +576,224 @@ const VoterVerification = () => {
     // =================================================================
     if (phase === 'biometric') {
         return (
-            <div className="min-h-screen bg-[#f4f6fa]">
+            <div className="min-h-screen bg-[#f3f4f6] flex flex-col items-stretch">
                 <Toaster position="top-center" />
-                <Header />
+                <VerificationHeader operatorName={operatorName} boothId={boothId} t={t} user={user} hardwareStatus={hardwareStatus} />
 
-                <main className="max-w-5xl mx-auto p-4 sm:p-6 mt-4">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* LEFT: Biometric Scanner — Rugged Hardware Terminal */}
-                        <div className="bg-[#1e293b] rounded-2xl border-t-2 border-slate-600 border-x-2 border-b-8 border-slate-900 p-5 sm:p-6 shadow-2xl flex flex-col relative">
-                            {/* Hardware Screws */}
-                            <div className="absolute top-4 left-4 w-2.5 h-2.5 rounded-full bg-slate-950 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] border border-slate-700"></div>
-                            <div className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-slate-950 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] border border-slate-700"></div>
-                            <div className="absolute bottom-4 left-4 w-2.5 h-2.5 rounded-full bg-slate-950 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] border border-slate-700"></div>
-                            <div className="absolute bottom-4 right-4 w-2.5 h-2.5 rounded-full bg-slate-950 shadow-[inset_0_1px_3px_rgba(0,0,0,0.8)] border border-slate-700"></div>
+                <main className="max-w-6xl mx-auto p-4 sm:p-6 mt-4">
+                    {/* Top Navigation Progress Bar */}
+                    <div className="mb-8 max-w-3xl mx-auto">
+                        <div className="flex items-center justify-between relative">
+                            {/* Track */}
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-slate-200 -z-10"></div>
+                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1/2 h-1 bg-[#6D28D9] -z-10 transition-all duration-500"></div>
 
-                            <div className="flex flex-col h-full z-10 px-1 sm:px-2 py-1">
-                                {/* Header Row */}
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="pl-2">
-                                        <h2 className="text-lg font-bold text-slate-100 tracking-tight uppercase">{t('step_3_title', 'Biometric Scan')}</h2>
-                                        <p className="text-[10px] text-slate-400 mt-0.5 font-mono tracking-widest">ECI-BIOMETRIC-TERMINAL v2.1</p>
-                                    </div>
-                                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded border-2 text-[10px] font-bold uppercase tracking-widest bg-slate-900 shadow-inner ${hardwareStatus === 'Ready' ? 'border-green-500/50 text-green-400' :
-                                        hardwareStatus === 'Connected' ? 'border-amber-500/50 text-amber-400' :
-                                            'border-slate-700 text-slate-500'
-                                        }`}>
-                                        <span className={`w-2 h-2 rounded-full shadow-[0_0_8px_currentColor] ${hardwareStatus === 'Ready' ? 'bg-green-500 animate-pulse' :
-                                            hardwareStatus === 'Connected' ? 'bg-amber-400 animate-pulse' :
-                                                'bg-slate-600'
-                                            }`} />
-                                        {hardwareStatus}
-                                    </div>
+                            {/* Step 1 */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-[#6D28D9] text-white flex items-center justify-center font-bold text-sm">
+                                    <CheckCircle2 className="w-4 h-4" />
                                 </div>
-
-                                {/* Physical Scanner Window */}
-                                <div className="relative flex-1 min-h-[280px] flex flex-col items-center justify-center rounded-xl bg-[#090e17] border-b-4 border-slate-800 shadow-[inset_0_15px_30px_rgba(0,0,0,0.9)] overflow-hidden">
-                                    {/* Green scanning laser line */}
-                                    {scanState === 'scanning' && <div className="absolute top-0 left-0 w-full h-1 z-20 bg-green-400 shadow-[0_0_15px_5px_rgba(74,222,128,0.5)] animate-[scan_2s_linear_infinite]" />}
-
-                                    {/* Glass reflection */}
-                                    <div className="absolute inset-0 z-10 bg-gradient-to-br from-white/5 to-transparent pointer-events-none rounded-xl"></div>
-
-                                    {/* Corner brackets */}
-                                    <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-slate-700/50" />
-                                    <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-slate-700/50" />
-                                    <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-slate-700/50" />
-                                    <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-slate-700/50" />
-
-                                    {/* IDLE */}
-                                    {scanState === 'idle' && (
-                                        <div className="flex flex-col items-center gap-4 z-10">
-                                            <div className="w-28 h-28 rounded-full border border-slate-700 flex items-center justify-center">
-                                                <div className="w-20 h-20 rounded-full border border-slate-700/60 flex items-center justify-center">
-                                                    <svg className="w-10 h-10 text-slate-600" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="3">
-                                                        <path strokeLinecap="round" d="M50 10 C28 10, 10 28, 10 50" />
-                                                        <path strokeLinecap="round" d="M50 10 C72 10, 90 28, 90 50" />
-                                                        <path strokeLinecap="round" d="M30 50 C30 39, 39 30, 50 30 C61 30, 70 39, 70 50 C70 65, 60 75, 50 78" />
-                                                        <path strokeLinecap="round" d="M20 55 C18 35, 33 18, 50 18 C67 18, 82 33, 82 50 C82 70, 67 85, 50 88" />
-                                                        <path strokeLinecap="round" d="M40 50 C40 44, 44 40, 50 40 C56 40, 60 44, 60 50 C60 60, 53 66, 50 68" />
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                            <p className="text-slate-400 font-semibold text-sm">{t('scan_waiting', 'Place finger on scanner')}</p>
-                                            <p className="text-slate-600 text-xs font-mono">Awaiting biometric input</p>
-                                        </div>
-                                    )}
-
-                                    {/* SCANNING */}
-                                    {scanState === 'scanning' && (
-                                        <div className="flex flex-col items-center gap-4 z-10">
-                                            <div className="relative flex items-center justify-center">
-                                                <div className="absolute w-40 h-40 rounded-full border border-indigo-500/15 animate-ping" style={{ animationDuration: '1.8s' }} />
-                                                <div className="absolute w-32 h-32 rounded-full border border-indigo-500/25 animate-ping" style={{ animationDuration: '1.8s', animationDelay: '0.4s' }} />
-                                                <div className="w-28 h-28 rounded-full border-2 border-indigo-500/70 bg-indigo-500/5 flex items-center justify-center">
-                                                    <div className="relative w-14 h-16 overflow-hidden">
-                                                        <svg className="w-12 h-12 text-indigo-400" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="3">
-                                                            <path strokeLinecap="round" d="M50 10 C28 10, 10 28, 10 50" />
-                                                            <path strokeLinecap="round" d="M50 10 C72 10, 90 28, 90 50" />
-                                                            <path strokeLinecap="round" d="M30 50 C30 39, 39 30, 50 30 C61 30, 70 39, 70 50 C70 65, 60 75, 50 78" />
-                                                            <path strokeLinecap="round" d="M20 55 C18 35, 33 18, 50 18 C67 18, 82 33, 82 50 C82 70, 67 85, 50 88" />
-                                                            <path strokeLinecap="round" d="M40 50 C40 44, 44 40, 50 40 C56 40, 60 44, 60 50 C60 60, 53 66, 50 68" />
-                                                        </svg>
-                                                        <div className="absolute inset-x-0 h-0.5 bg-indigo-400 shadow-[0_0_10px_4px_rgba(129,140,248,0.7)] animate-[scan_1.5s_ease-in-out_infinite]" />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <p className="text-indigo-400 font-black text-sm tracking-[0.25em] uppercase animate-pulse">{t('scan_scanning', 'Scanning...')}</p>
-                                            {scanQuality && (
-                                                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest ${scanQuality === 'Excellent' ? 'border-green-500/40 text-green-400 bg-green-500/10' : scanQuality === 'Good' ? 'border-indigo-500/40 text-indigo-400 bg-indigo-500/10' : 'border-red-500/40 text-red-400 bg-red-500/10'}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${scanQuality === 'Excellent' ? 'bg-green-400' : scanQuality === 'Good' ? 'bg-indigo-400' : 'bg-red-400'}`} />
-                                                    Signal: {scanQuality}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* SUCCESS */}
-                                    {scanState === 'success' && (
-                                        <div className="flex flex-col items-center gap-4 z-10">
-                                            <div className="relative flex items-center justify-center">
-                                                <div className="absolute w-32 h-32 rounded-full border border-green-500/20 animate-ping" style={{ animationDuration: '2s' }} />
-                                                <div className="w-28 h-28 rounded-full bg-green-500/10 border-2 border-green-500 flex items-center justify-center">
-                                                    <CheckCircle2 className="w-14 h-14 text-green-400" />
-                                                </div>
-                                            </div>
-                                            <p className="text-green-400 font-black text-sm tracking-[0.2em] uppercase">{t('scan_success', 'Identity Confirmed')}</p>
-                                            <p className="text-slate-500 text-xs font-mono">Biometric match successful</p>
-                                        </div>
-                                    )}
-
-                                    {/* DUPLICATE */}
-                                    {scanState === 'duplicate' && (
-                                        <div className="flex flex-col items-center gap-4 z-10">
-                                            <div className="w-28 h-28 rounded-full bg-red-500/10 border-2 border-red-500 flex items-center justify-center">
-                                                <AlertTriangle className="w-14 h-14 text-red-400" />
-                                            </div>
-                                            <p className="text-red-400 font-black text-sm tracking-[0.2em] uppercase">{t('scan_duplicate_detected', 'Duplicate Detected')}</p>
-                                            <p className="text-slate-500 text-xs font-mono">Voter biometric already registered</p>
-                                        </div>
-                                    )}
-
-                                    {/* FAILED */}
-                                    {scanState === 'failed' && (
-                                        <div className="flex flex-col items-center gap-3 z-10 px-4 text-center">
-                                            <div className="w-24 h-24 rounded-full bg-orange-500/10 border-2 border-orange-500 flex items-center justify-center">
-                                                <AlertTriangle className="w-12 h-12 text-orange-400" />
-                                            </div>
-                                            <p className="text-orange-400 font-black text-sm tracking-widest uppercase">Scan Failed</p>
-                                            <p className="text-slate-400 text-[11px] font-mono leading-relaxed">{scanError || 'The scan could not be completed. Please try again.'}</p>
-                                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20">
-                                                <span className="text-[9px] text-orange-400 font-mono uppercase tracking-widest">Attempts: {retryCount}/3</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* TIMEOUT */}
-                                    {scanState === 'timeout' && (
-                                        <div className="flex flex-col items-center gap-3 z-10 px-4 text-center">
-                                            <div className="w-24 h-24 rounded-full bg-amber-500/10 border-2 border-amber-500 flex items-center justify-center">
-                                                <svg className="w-12 h-12 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                            </div>
-                                            <p className="text-amber-400 font-black text-sm tracking-widest uppercase">Unable to Detect</p>
-                                            <p className="text-slate-400 text-[11px] font-mono">No finger detected within 8 seconds. Please retry.</p>
-                                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20">
-                                                <span className="text-[9px] text-amber-400 font-mono uppercase tracking-widest">Attempts: {retryCount}/3</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* POOR QUALITY */}
-                                    {scanState === 'poor_quality' && (
-                                        <div className="flex flex-col items-center gap-3 z-10 px-4 text-center">
-                                            <div className="w-24 h-24 rounded-full bg-yellow-500/10 border-2 border-yellow-500 flex items-center justify-center">
-                                                <svg className="w-12 h-12 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-6.75v6.75m3-9v9M6 20.25h12A2.25 2.25 0 0020.25 18V6A2.25 2.25 0 0018 3.75H6A2.25 2.25 0 003.75 6v12A2.25 2.25 0 006 20.25z" />
-                                                </svg>
-                                            </div>
-                                            <p className="text-yellow-400 font-black text-sm tracking-widest uppercase">Poor Signal</p>
-                                            <p className="text-slate-400 text-[11px] font-mono leading-relaxed">Fingerprint quality too low to process.<br />Clean finger &amp; press firmly on sensor.</p>
-                                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                                                <span className="text-[9px] text-yellow-400 font-mono uppercase tracking-widest">Attempts: {retryCount}/3</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Terminal Log Box */}
-                                <div className="mt-5 bg-[#0b101a] rounded border border-slate-700/60 p-3 h-20 overflow-y-auto font-mono text-[10px] sm:text-xs leading-relaxed shadow-[inset_0_2px_5px_rgba(0,0,0,0.5)]">
-                                    <p className="text-slate-500">&gt; KERNEL INIT... OK</p>
-                                    {hardwareStatus === 'Connected' && <p className="text-amber-400">&gt; PROBING USB DEVICES... FOUND BIOMETRIC_SENSOR</p>}
-                                    {hardwareStatus === 'Ready' && <>
-                                        <p className="text-green-500">&gt; DEVICE HOOKED.</p>
-                                        <p className="text-green-400 font-bold">&gt; SYSTEM READY. WAITING FOR INPUT.</p>
-                                    </>}
-                                    {scanState === 'scanning' && <p className="text-green-400 animate-pulse">&gt; SENSOR ACTIVE: READING MINUTIAE DATA...</p>}
-                                    {scanState === 'success' && <p className="text-green-400">&gt; MINUTIAE EXTRACTED. HASH MATCH: VALID.</p>}
-                                    {(scanState === 'failed' || scanState === 'timeout' || scanState === 'poor_quality') && <p className="text-red-400 font-bold">&gt; ERR: SCAN TERMINATED — {scanState.toUpperCase()}</p>}
-                                </div>
-
-                                {/* Retry Counter Dots */}
-                                {['failed', 'timeout', 'poor_quality'].includes(scanState) && retryCount < 3 && (
-                                    <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-[#0b101a] border border-slate-700/60 rounded">
-                                        <div className="flex gap-1">
-                                            {[1, 2, 3].map(n => (
-                                                <div key={n} className={`w-2 h-2 rounded-full ${n <= retryCount ? 'bg-red-500 shadow-[0_0_5px_#ef4444]' : 'bg-slate-700'}`} />
-                                            ))}
-                                        </div>
-                                        <span className="text-[10px] text-slate-400 font-mono">{3 - retryCount} attempt{3 - retryCount !== 1 ? 's' : ''} remaining</span>
-                                    </div>
-                                )}
-
-                                {/* Action Buttons */}
-                                <div className="mt-5 space-y-3">
-                                    {/* IDLE */}
-                                    {scanState === 'idle' && (
-                                        <div className="flex gap-3">
-                                            <button
-                                                onClick={handleStartScan}
-                                                disabled={hardwareStatus !== 'Ready' || retryCount >= 3}
-                                                className="flex-1 py-3.5 bg-violet-600 text-white text-sm font-bold rounded-lg hover:bg-violet-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_0_rgb(88,28,135)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(88,28,135)] active:translate-y-[4px] active:shadow-none flex items-center justify-center gap-2 uppercase tracking-widest border border-violet-400"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" /></svg>
-                                                {hardwareStatus === 'Ready' ? t('btn_start_scan', 'Initiate Scan') : 'Initializing Device...'}
-                                            </button>
-                                            <button
-                                                onClick={() => setPhase('preview')}
-                                                className="px-5 py-3.5 border border-slate-600 text-slate-300 text-sm font-semibold rounded-lg hover:bg-slate-700 hover:text-white transition-all shadow-[0_4px_0_rgb(71,85,105)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(71,85,105)] active:translate-y-[4px] active:shadow-none"
-                                            >
-                                                {t('btn_cancel_back', 'Back')}
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {/* SUCCESS */}
-                                    {scanState === 'success' && (
-                                        <button
-                                            onClick={handleMarkVoted}
-                                            className="w-full py-3.5 bg-green-600 text-white text-sm font-black rounded-lg hover:bg-green-500 transition-all shadow-[0_4px_0_rgb(22,101,52)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(22,101,52)] active:translate-y-[4px] active:shadow-none uppercase tracking-widest border border-green-500"
-                                        >
-                                            {t('btn_mark_voted', 'Mark as Voted & Continue →')}
-                                        </button>
-                                    )}
-
-                                    {/* DUPLICATE */}
-                                    {scanState === 'duplicate' && (
-                                        <button
-                                            onClick={handleReset}
-                                            className="w-full py-3.5 bg-red-700 text-white text-sm font-black rounded-lg hover:bg-red-600 transition-all shadow-[0_4px_0_rgb(153,27,27)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(153,27,27)] active:translate-y-[4px] active:shadow-none uppercase tracking-widest border border-red-500"
-                                        >
-                                            Flag as Fraud &amp; Start Over
-                                        </button>
-                                    )}
-
-                                    {/* FAILED / TIMEOUT / POOR QUALITY */}
-                                    {['failed', 'timeout', 'poor_quality'].includes(scanState) && (
-                                        <div className="space-y-3">
-                                            {retryCount < 3 ? (
-                                                <button
-                                                    onClick={handleRetryScan}
-                                                    className="w-full py-3.5 bg-violet-700 text-white text-sm font-bold rounded-lg hover:bg-violet-600 transition-all flex items-center justify-center gap-2 shadow-[0_4px_0_rgb(88,28,135)] hover:translate-y-[2px] hover:shadow-[0_2px_0_rgb(88,28,135)] active:translate-y-[4px] active:shadow-none border border-violet-500 uppercase tracking-widest"
-                                                >
-                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
-                                                    Retake Scan ({3 - retryCount} left)
-                                                </button>
-                                            ) : (
-                                                <div className="p-3 bg-red-900/30 border border-red-700 rounded-lg text-center">
-                                                    <p className="text-red-400 text-xs font-bold uppercase tracking-wider mb-1">⛔ Maximum Attempts Reached</p>
-                                                    <p className="text-slate-400 text-[10px] font-mono">Escalate to supervisor or use manual override procedure.</p>
-                                                </div>
-                                            )}
-                                            <button
-                                                onClick={handleReset}
-                                                className="w-full py-2.5 border border-slate-600 text-slate-400 text-xs font-semibold rounded-lg hover:bg-slate-700 hover:text-white transition-all"
-                                            >
-                                                Cancel &amp; Start New Verification
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    <p className="text-center text-[9px] text-slate-500 font-mono pt-1">
-                                        {t('biometric_note', 'All biometric data is encrypted end-to-end and never stored.')}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-
-                        {/* RIGHT: Final Confirmation Card */}
-                        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-                            <h2 className="text-base font-bold text-slate-800 mb-5">{t('final_confirmation_title')}</h2>
-                            <AadhaarCard />
-
-                            <div className="mt-4 bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg">
-                                <p className="text-xs text-amber-700">
-                                    {t('visual_confirm_warning')}
-                                </p>
+                                <span className="text-xs font-bold text-slate-700">1. Voter Identification</span>
                             </div>
 
-                            {scanState === 'duplicate' && duplicateInfo && (
-                                <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-3 rounded-r-lg">
-                                    <p className="text-sm font-bold text-red-700 mb-1">{t('duplicate_biometric_alert')}</p>
-                                    <p className="text-xs text-red-600 mb-2">
-                                        {t('duplicate_biometric_desc')}
-                                    </p>
-                                    {duplicateInfo.original_location && (
-                                        <div className="bg-white/60 p-2 rounded text-[10px] text-red-800 border border-red-200">
-                                            <p className="font-semibold mb-1 border-b border-red-200 pb-0.5">Original Registration Found:</p>
-                                            <div className="grid grid-cols-2 gap-1">
-                                                <p><span className="text-red-600 font-medium">State:</span> {duplicateInfo.original_location.state}</p>
-                                                <p><span className="text-red-600 font-medium">District:</span> {duplicateInfo.original_location.district}</p>
-                                                <p><span className="text-red-600 font-medium">Tehsil:</span> {duplicateInfo.original_location.tehsil}</p>
-                                                <p><span className="text-red-600 font-medium">Booth:</span> {duplicateInfo.original_location.booth_id}</p>
-                                            </div>
-                                        </div>
-                                    )}
+                            {/* Step 2 */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-[#6D28D9] text-white flex items-center justify-center font-bold text-sm ring-4 ring-[#6D28D9]/20">
+                                    2
                                 </div>
-                            )}
+                                <span className="text-xs font-bold text-[#6D28D9]">2. Biometric Verification</span>
+                            </div>
+
+                            {/* Step 3 */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-sm">
+                                    3
+                                </div>
+                                <span className="text-xs font-semibold text-slate-500">3. Final Confirmation</span>
+                            </div>
                         </div>
                     </div>
 
-                    <button onClick={() => setPhase('preview')} className="mt-4 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 transition-colors">
-                        <ArrowLeft className="w-4 h-4" /> {t('btn_back_visual')}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* LEFT MODULE: Rugged Hardware Terminal */}
+                        <div className="bg-[#1e2433] rounded-sm border border-slate-700 shadow-xl overflow-hidden flex flex-col relative">
+                            {/* Hardware details: Screws */}
+                            <div className="absolute top-3 left-3 w-1.5 h-1.5 rounded-full bg-[#0f1219] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]"></div>
+                            <div className="absolute top-3 right-3 w-1.5 h-1.5 rounded-full bg-[#0f1219] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]"></div>
+                            <div className="absolute bottom-3 left-3 w-1.5 h-1.5 rounded-full bg-[#0f1219] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]"></div>
+                            <div className="absolute bottom-3 right-3 w-1.5 h-1.5 rounded-full bg-[#0f1219] shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]"></div>
+
+                            {/* Terminal Top Bar */}
+                            <div className="bg-[#181d29] px-5 py-3 border-b border-slate-700/50 flex items-center justify-between z-10">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="w-2 h-6 bg-slate-600 rounded-sm"></div>
+                                    <div>
+                                        <h2 className="text-sm font-bold text-slate-200 tracking-wider uppercase">ECI Secure Scanner</h2>
+                                        <p className="text-[9px] text-slate-500 font-mono tracking-widest uppercase">ID: TERM-74A-99</p>
+                                    </div>
+                                </div>
+                                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0f1219] border border-slate-700/50 shadow-inner`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${hardwareStatus === 'Ready' ? 'bg-[#22c55e] shadow-[0_0_5px_#22c55e]' :
+                                        hardwareStatus === 'Connected' ? 'bg-[#eab308] shadow-[0_0_5px_#eab308]' : 'bg-[#64748b]'
+                                        }`} />
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{hardwareStatus}</span>
+                                </div>
+                            </div>
+
+                            <div className="p-6 flex flex-col flex-1 z-10">
+                                {/* Physical Scanner Window & Grayscale Fingerprint */}
+                                <div className="relative w-full h-64 bg-[#050608] rounded-lg border-2 border-slate-800 shadow-[inset_0_10px_30px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col items-center justify-center mb-5 mx-auto">
+                                    {/* GIF or Icons */}
+                                    <div className="relative flex items-center justify-center w-full h-full">
+                                        {scanState === 'scanning' ? (
+                                            <img
+                                                src="/assets/images/fingerprint-animated.gif"
+                                                alt="Scanning Biometrics"
+                                                className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-100"
+                                            />
+                                        ) : scanState === 'idle' ? (
+                                            <Fingerprint className="w-24 h-24 text-slate-700 opacity-20" />
+                                        ) : scanState === 'success' ? (
+                                            <div className="flex flex-col items-center justify-center">
+                                                <CheckCircle2 className="w-20 h-20 text-green-500 drop-shadow-[0_0_15px_rgba(34,197,94,0.8)]" />
+                                                <span className="mt-3 text-green-500 font-bold tracking-widest text-sm">MATCHED</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center">
+                                                <AlertTriangle className="w-20 h-20 text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]" />
+                                                <span className="mt-3 text-red-500 font-bold tracking-widest text-sm uppercase">
+                                                    {scanState === 'timeout' ? 'Timeout' : scanState === 'duplicate' ? 'Duplicate' : 'Failed'}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Glass reflection */}
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none rounded-lg"></div>
+                                </div>
+
+                                {/* Terminal Log Box */}
+                                <div className="bg-[#0b0e14] rounded-md border border-slate-700 shadow-inner p-3 h-24 overflow-y-auto mb-6 flex flex-col justify-end">
+                                    <div className="font-mono text-[11px] leading-relaxed tracking-wide">
+                                        <p className="text-slate-500">[{new Date().toLocaleTimeString('en-US', { hour12: false })}] SYSTEM BOOT VER 4.2.1</p>
+                                        {hardwareStatus === 'Connected' && <p className="text-slate-400">[{new Date().toLocaleTimeString('en-US', { hour12: false })}] PROBING USB PORT 2...</p>}
+                                        {hardwareStatus === 'Ready' && (
+                                            <>
+                                                <p className="text-[#22c55e]">[{new Date().toLocaleTimeString('en-US', { hour12: false })}] DEVICE CONNECTED. SENSOR OK.</p>
+                                                {scanState === 'idle' && <p className="text-[#22c55e] font-bold mt-1">&gt; SYSTEM READY. AWAITING FINGERPRINT.</p>}
+                                            </>
+                                        )}
+                                        {scanState === 'scanning' && <p className="text-[#22c55e] animate-pulse">&gt; EXECUTING BIOMETRIC CAPTURE...</p>}
+                                        {scanState === 'success' && <p className="text-[#22c55e] font-bold mt-1">&gt; MATCH FOUND. VERICIATION SUCCESSFUL.</p>}
+                                        {scanState === 'timeout' && <p className="text-red-400 font-bold mt-1">&gt; ERROR: SCAN TIMEOUT. UNABLE TO DETECT.</p>}
+                                        {scanState === 'failed' && <p className="text-red-400 font-bold mt-1">&gt; ERROR: MATCH FAILED OR DATA CORRUPT.</p>}
+                                        {scanState === 'duplicate' && <p className="text-red-400 font-bold mt-1">&gt; ALERT: DUPLICATE BIOMETRIC DETECTED.</p>}
+                                    </div>
+                                </div>
+
+                                {/* Start Scan / Actions */}
+                                <div className="mt-auto">
+                                    {scanState === 'idle' && (
+                                        <button
+                                            onClick={handleStartScan}
+                                            disabled={hardwareStatus !== 'Ready' || retryCount >= 3}
+                                            className="w-full py-3.5 bg-[#6D28D9] text-white text-sm font-bold tracking-widest rounded-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#5B21B6]"
+                                        >
+                                            {hardwareStatus === 'Ready' ? 'START SCAN' : 'INITIALIZING...'}
+                                        </button>
+                                    )}
+
+                                    {scanState === 'scanning' && (
+                                        <button
+                                            disabled
+                                            className="w-full py-3.5 bg-[#4c1d95] text-indigo-200 text-sm font-bold tracking-widest rounded-sm cursor-wait"
+                                        >
+                                            SCANNING...
+                                        </button>
+                                    )}
+
+                                    {scanState === 'success' && (
+                                        <button
+                                            onClick={handleMarkVoted}
+                                            className="w-full py-3.5 bg-[#16a34a] text-white text-sm font-bold tracking-widest rounded-sm transition-all hover:bg-[#15803d]"
+                                        >
+                                            CONFIRM & MARK VOTED
+                                        </button>
+                                    )}
+
+                                    {['timeout', 'failed'].includes(scanState) && (
+                                        <div className="flex gap-3">
+                                            {retryCount < 3 ? (
+                                                <button
+                                                    onClick={handleRetryScan}
+                                                    className="flex-1 py-3.5 bg-[#6D28D9] text-white text-sm font-bold tracking-widest rounded-sm transition-all hover:bg-[#5B21B6]"
+                                                >
+                                                    RETAKE SCAN ({3 - retryCount} LEFT)
+                                                </button>
+                                            ) : (
+                                                <button disabled className="flex-1 py-3.5 bg-red-900/50 text-red-500 text-sm font-bold tracking-widest rounded-sm border border-red-900">
+                                                    MAX ATTEMPTS
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={handleReset}
+                                                className="px-6 py-3.5 bg-transparent border border-slate-600 text-slate-300 text-sm font-bold tracking-widest rounded-sm hover:bg-slate-800 transition-colors"
+                                            >
+                                                CANCEL
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {scanState === 'duplicate' && (
+                                        <button
+                                            onClick={handleReset}
+                                            className="w-full py-3.5 bg-[#dc2626] text-white text-sm font-bold tracking-widest rounded-sm transition-all hover:bg-[#b91c1c]"
+                                        >
+                                            FLAG FRAUD & START OVER
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* RIGHT MODULE: Clean Official ID Profile */}
+                        <div className="bg-white rounded-sm border border-slate-200 flex flex-col overflow-hidden h-full">
+                            <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-3">
+                                <User className="w-5 h-5 text-slate-800" />
+                                <h3 className="font-bold text-slate-900 tracking-wide uppercase text-sm">Voter Profile Preview</h3>
+                            </div>
+
+                            <div className="p-6 flex-1 flex flex-col justify-center">
+                                {renderAadhaarCard('normal')}
+
+                                {scanState === 'duplicate' && duplicateInfo && (
+                                    <div className="mt-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+                                        <p className="text-sm font-bold text-red-700 mb-1">{t('duplicate_biometric_alert', 'Duplicate Detected')}</p>
+                                        <p className="text-xs text-red-600 mb-3">
+                                            {t('duplicate_biometric_desc', 'This fingerprint matches an existing voter registration.')}
+                                        </p>
+                                        {duplicateInfo.original_location && (
+                                            <div className="bg-white/70 p-3 rounded-md text-[11px] text-red-800 border border-red-200">
+                                                <p className="font-bold mb-1.5 border-b border-red-200 pb-1 uppercase tracking-wider text-[10px]">Original Registration Details</p>
+                                                <div className="grid grid-cols-2 gap-y-2 gap-x-4">
+                                                    <div><span className="text-red-500 block text-[9px] uppercase tracking-wider">State</span> <span className="font-medium">{duplicateInfo.original_location.state}</span></div>
+                                                    <div><span className="text-red-500 block text-[9px] uppercase tracking-wider">District</span> <span className="font-medium">{duplicateInfo.original_location.district}</span></div>
+                                                    <div><span className="text-red-500 block text-[9px] uppercase tracking-wider">Tehsil</span> <span className="font-medium">{duplicateInfo.original_location.tehsil}</span></div>
+                                                    <div><span className="text-red-500 block text-[9px] uppercase tracking-wider">Booth ID</span> <span className="font-mono font-bold">{duplicateInfo.original_location.booth_id}</span></div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onClick={() => setPhase('preview')} className="mt-8 flex items-center justify-center gap-2 text-sm text-slate-500 hover:text-slate-800 font-semibold transition-colors mx-auto px-4 py-2 rounded-full hover:bg-slate-200/50">
+                        <ArrowLeft className="w-4 h-4" /> Return to Voter ID Input
                     </button>
-                </main >
-            </div >
+                </main>
+            </div>
         );
     }
 
@@ -888,9 +801,9 @@ const VoterVerification = () => {
     // PHASE: DONE
     // =================================================================
     return (
-        <div className="min-h-screen bg-[#f4f6fa]">
+        <div className="min-h-screen bg-[#f4f6fa] flex flex-col items-stretch">
             <Toaster position="top-center" />
-            <Header />
+            <VerificationHeader operatorName={operatorName} boothId={boothId} t={t} user={user} hardwareStatus={hardwareStatus} />
 
             <main className="max-w-xl mx-auto p-6 mt-10">
                 <div className="bg-white rounded-xl border border-slate-200 p-8 shadow-sm text-center">

@@ -10,22 +10,19 @@
 }
 
 @layer utilities {
-  @keyframes scan {
+  @keyframes biometric_scan {
     0% {
-      transform: translateY(-3rem);
+      transform: translateY(-4rem);
       opacity: 0;
     }
-
     10% {
       opacity: 1;
     }
-
     90% {
       opacity: 1;
     }
-
     100% {
-      transform: translateY(3rem);
+      transform: translateY(12rem);
       opacity: 0;
     }
   }
