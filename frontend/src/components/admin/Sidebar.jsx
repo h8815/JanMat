@@ -46,6 +46,13 @@ const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCol
                     msOverflowStyle: 'none',
                 }}
             >
+                {/* Tricolour Bar */}
+                <div className="h-1.5 w-full flex-shrink-0 flex">
+                    <div className="flex-1 bg-[#FF9933]" />
+                    <div className="flex-1 bg-white" />
+                    <div className="flex-1 bg-[#138808]" />
+                </div>
+
                 {/* Header Section */}
                 <div className={`flex items-center p-4 mb-2 relative border-b border-transparent min-h-[60px] justify-between ${isCollapsed ? 'md:justify-center' : ''}`}>
 
