@@ -48,5 +48,4 @@ Thumbs.db
 *.bak
 *.tmp
 *.log
-
-/logs/*
+logs/*
