@@ -1,0 +1,21 @@
+[2026-04-07 18:10:04 +0000] [22] [INFO] Starting gunicorn 21.2.0
+[2026-04-07 18:10:04 +0000] [22] [INFO] Listening at: http://0.0.0.0:8000 (22)
+[2026-04-07 18:10:04 +0000] [22] [INFO] Using worker: sync
+[2026-04-07 18:10:04 +0000] [23] [INFO] Booting worker with pid: 23
+[2026-04-07 18:10:04 +0000] [24] [INFO] Booting worker with pid: 24
+[2026-04-07 18:10:04 +0000] [25] [INFO] Booting worker with pid: 25
+[2026-04-07 18:23:49 +0000] [22] [CRITICAL] WORKER TIMEOUT (pid:24)
+[2026-04-07 23:53:49 +0530] [24] [INFO] Worker exiting (pid: 24)
+[2026-04-07 18:23:49 +0000] [22] [ERROR] Worker (pid:24) exited with code 1
+[2026-04-07 18:23:49 +0000] [22] [ERROR] Worker (pid:24) exited with code 1.
+[2026-04-07 18:23:49 +0000] [194] [INFO] Booting worker with pid: 194
+[2026-04-07 18:40:12 +0000] [22] [CRITICAL] WORKER TIMEOUT (pid:194)
+[2026-04-08 00:10:12 +0530] [194] [INFO] Worker exiting (pid: 194)
+[2026-04-07 18:40:12 +0000] [22] [ERROR] Worker (pid:194) exited with code 1
+[2026-04-07 18:40:12 +0000] [22] [ERROR] Worker (pid:194) exited with code 1.
+[2026-04-07 18:40:12 +0000] [22] [CRITICAL] WORKER TIMEOUT (pid:23)
+[2026-04-07 18:40:12 +0000] [393] [INFO] Booting worker with pid: 393
+[2026-04-08 00:10:12 +0530] [23] [INFO] Worker exiting (pid: 23)
+[2026-04-07 18:40:13 +0000] [22] [ERROR] Worker (pid:23) exited with code 1
+[2026-04-07 18:40:13 +0000] [22] [ERROR] Worker (pid:23) exited with code 1.
+[2026-04-07 18:40:13 +0000] [394] [INFO] Booting worker with pid: 394
