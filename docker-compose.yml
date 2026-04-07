@@ -1,5 +1,5 @@
 # JanMat - Secure Biometric E-Voting Booth System
-# Docker Compose Configuration with Tenant Isolation
+# Docker Compose Configuration — PRODUCTION
 
 services:
   postgres:
@@ -10,8 +10,7 @@ services:
       POSTGRES_USER: ${DB_USER:-janmat_user}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-janmat_pass}
       POSTGRES_HOST_AUTH_METHOD: ${DB_AUTH_METHOD:-md5}
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    # DB NOT exposed to host — only accessible via Docker internal network
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./config/postgres/janmat_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -38,10 +37,9 @@ services:
       - DB_HOST=postgres
       - DB_PORT=5432
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./logs:/app/logs
-      - ./backend:/app
       - backend_static:/app/staticfiles
     depends_on:
       postgres:
@@ -52,8 +50,6 @@ services:
       - 8.8.4.4
     networks:
       - janmat-network
-    # extra_hosts: # For Getting IP [ping api.sandbox.co.in]
-    #   - "api.sandbox.co.in:13.205.205.155"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
       interval: 30s
@@ -68,10 +64,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://127.0.0.1:8000/api}
+        VITE_API_URL: ${VITE_API_URL:-/api}
     container_name: janmat_frontend
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
     depends_on:
       backend:
         condition: service_healthy
