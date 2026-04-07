@@ -32,6 +32,7 @@ const OperatorDashboard = () => {
     const [currentTime, setCurrentTime] = useState('');
     const [currentDate, setCurrentDate] = useState('');
     const [boothOpen, setBoothOpen] = useState(false);
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
     const [confirmModal, setConfirmModal] = useState({
         isOpen: false,
@@ -105,15 +106,15 @@ const OperatorDashboard = () => {
                             </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 text-xs">
-                        <SystemStatus biometricStatus="Ready" />
-                        <FontSizeSwitcher />
-                        <div className="h-4 w-px bg-slate-200" />
+                    <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap justify-end">
+                        <span className="hidden sm:block"><SystemStatus biometricStatus="Ready" /></span>
+                        <span className="hidden sm:block"><FontSizeSwitcher /></span>
+                        <div className="h-4 w-px bg-slate-200 hidden sm:block" />
                         <LanguageSwitcher />
                         <span className="hidden sm:inline text-slate-700 font-bold font-mono tracking-widest">{currentTime}</span>
                         <div className="h-4 w-px bg-slate-200 hidden sm:block" />
                         <button
-                            onClick={logout}
+                            onClick={() => setShowLogoutConfirm(true)}
                             className="flex items-center gap-1.5 px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-md font-semibold transition-colors"
                         >
                             <LogOut className="w-3.5 h-3.5" />
@@ -351,6 +352,18 @@ const OperatorDashboard = () => {
                 onConfirm={confirmModal.onConfirm}
                 confirmText={confirmModal.isDanger ? (t('btn_confirm') || 'Confirm') : (t('btn_confirm') || 'Confirm')}
                 cancelText={t('btn_cancel') || 'Cancel'}
+            />
+
+            {/* Logout Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showLogoutConfirm}
+                onClose={() => setShowLogoutConfirm(false)}
+                onConfirm={logout}
+                title={t('confirm_logout_title') || 'Sign Out'}
+                message={t('confirm_logout_desc') || 'Are you sure you want to sign out? You will need to log in again to access the dashboard.'}
+                confirmText={t('btn_logout') || 'Sign Out'}
+                cancelText={t('cancel') || 'Cancel'}
+                isDanger={true}
             />
         </div>
     );

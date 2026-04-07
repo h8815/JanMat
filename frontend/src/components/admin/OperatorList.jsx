@@ -235,9 +235,9 @@ const OperatorList = () => {
 
             {/* Bulk Action Toolbar */}
             {selectedIds.size > 0 && (
-                <div className="bg-janmat-blue text-white p-4 rounded-lg shadow-lg flex justify-between items-center animate-in slide-in-from-top-2 duration-300">
+                <div className="bg-janmat-blue text-white p-3 sm:p-4 rounded-lg shadow-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 animate-in slide-in-from-top-2 duration-300">
                     <span className="font-bold">{selectedIds.size} {t('selected')}</span>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 flex-wrap">
                         <button
                             onClick={() => handleBulkAction('activate')}
                             className="bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded text-sm font-medium transition-colors"
@@ -273,7 +273,7 @@ const OperatorList = () => {
                 </div>
             )}
 
-            <div className="flex justify-between items-center bg-white p-4 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-white p-4 rounded-lg border border-slate-200 shadow-sm dark:bg-slate-800 dark:border-slate-700">
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                     <div className="relative w-full max-w-xs">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />

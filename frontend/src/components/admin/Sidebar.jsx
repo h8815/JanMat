@@ -2,9 +2,11 @@ import React, { useEffect } from 'react';
 import { Home, Users, AlertOctagon, FileText, Settings as SettingsIcon, LogOut, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getFullStateName } from '../../utils/locationHelper';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCollapsed, setIsCollapsed }) => {
     const { t } = useTranslation();
+    const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false);
 
     // Add effect to prevent body scroll and horizontal overflow when sidebar is open on mobile
     useEffect(() => {
@@ -154,7 +156,7 @@ const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCol
 
                         {/* Logout Button (Expanded / Mobile) */}
                         <button
-                            onClick={logout}
+                            onClick={() => setShowLogoutConfirm(true)}
                             className={`p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0 ${isCollapsed ? 'md:hidden' : ''} dark:hover:bg-slate-600 dark:hover:text-red-400`}
                             title="Sign Out"
                         >
@@ -165,7 +167,7 @@ const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCol
                     {/* Collapsed Logout separate button - Desktop Only */}
                     {isCollapsed && (
                         <button
-                            onClick={logout}
+                            onClick={() => setShowLogoutConfirm(true)}
                             className="hidden md:flex w-full mt-3 p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg justify-center transition-colors dark:hover:bg-slate-700 dark:hover:text-red-400"
                             title="Sign Out"
                         >
@@ -183,6 +185,18 @@ const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCol
                     }
                 `}</style>
             </nav>
+
+            {/* Logout Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showLogoutConfirm}
+                onClose={() => setShowLogoutConfirm(false)}
+                onConfirm={logout}
+                title={t('confirm_logout_title') || 'Sign Out'}
+                message={t('confirm_logout_desc') || 'Are you sure you want to sign out? You will need to log in again to access the dashboard.'}
+                confirmText={t('btn_logout') || 'Sign Out'}
+                cancelText={t('cancel') || 'Cancel'}
+                isDanger={true}
+            />
         </>
     );
 };

@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.core.cache import cache
 import logging
 
+from .models import Voter
 from .services import AadhaarService, BiometricService, FraudDetectionService, AuditService
 
 logger = logging.getLogger(__name__)
@@ -57,10 +58,21 @@ def send_otp(request):
             ip_address=request.META.get('REMOTE_ADDR')
         )
         
+        # Check if voter has already voted — return as a warning (does not block OTP flow)
+        already_voted_warning = False
+        try:
+            voter = Voter.objects.filter(aadhaar_number=aadhaar_number, admin_id=admin_id).first()
+            if voter and voter.has_voted:
+                already_voted_warning = True
+                logger.warning(f"Already-voted voter attempted re-verification: XXXX-{aadhaar_number[-4:]}")
+        except Exception:
+            pass  # Non-critical check, don't block OTP flow
+        
         return Response({
             'success': True,
             'message': result['message'],
-            'expires_at': result['expires_at']
+            'expires_at': result['expires_at'],
+            'already_voted_warning': already_voted_warning
         })
         
     except Exception as e:

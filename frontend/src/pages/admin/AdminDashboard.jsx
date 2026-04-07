@@ -607,9 +607,9 @@ const AdminDashboard = () => {
                                     {t('nav_' + activeTab) || (activeTab.charAt(0).toUpperCase() + activeTab.slice(1))}
                                 </h2>
 
-                                {/* Live Indicator & Refresh Controls */}
+                                {/* Live Indicator & Refresh Controls — hidden on mobile */}
                                 {(activeTab === 'dashboard' || activeTab === 'fraud' || activeTab === 'audit') && (
-                                    <div className="flex items-center bg-slate-100 rounded-full border border-slate-200 p-0.5 dark:bg-slate-800 dark:border-slate-700">
+                                    <div className="hidden md:flex items-center bg-slate-100 rounded-full border border-slate-200 p-0.5 dark:bg-slate-800 dark:border-slate-700">
                                         <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors duration-300 ${autoRefreshInterval > 0 ? 'bg-green-50 text-green-700 border border-green-100 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' : 'text-slate-500'}`}>
                                             {autoRefreshInterval > 0 && (
                                                 <span className="relative flex h-2 w-2">

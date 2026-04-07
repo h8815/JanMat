@@ -38,14 +38,14 @@ const VerificationHeader = ({ operatorName, boothId, t, user, hardwareStatus }) 
                         <p className="text-[10px] text-slate-400">{t('ECI')} — {t('JanMat')}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                     <div className="hidden md:flex flex-col items-end mr-4">
                         <span className="text-[10px] text-slate-400 font-medium">Last Login</span>
                         <span className="text-xs text-slate-600 font-semibold">{user?.last_login ? new Date(user.last_login).toLocaleString() : 'Just now'}</span>
                     </div>
-                    <SystemStatus biometricStatus={hardwareStatus} />
-                    <FontSizeSwitcher />
-                    <div className="h-4 w-px bg-slate-200" />
+                    <span className="hidden sm:block"><SystemStatus biometricStatus={hardwareStatus} /></span>
+                    <span className="hidden sm:block"><FontSizeSwitcher /></span>
+                    <div className="h-4 w-px bg-slate-200 hidden sm:block" />
                     <LanguageSwitcher />
                     <div className="flex items-center gap-2">
                         <span className="flex items-center gap-1.5 text-green-600 text-xs font-semibold">
@@ -97,6 +97,9 @@ const VoterVerification = () => {
     // Fraud alert
     const [fraudAlert, setFraudAlert] = useState(null);
 
+    // Already-voted early warning (shown as soon as Aadhaar is entered)
+    const [alreadyVotedWarning, setAlreadyVotedWarning] = useState(false);
+
     // Rate Limiting States
     const [otpAttempts, setOtpAttempts] = useState(0);
 
@@ -126,8 +129,13 @@ const VoterVerification = () => {
         const raw = aadhaar.replace(/\s/g, '');
         if (raw.length !== 12) { toast.error('Enter a valid 12-digit Aadhaar number.'); return; }
         setLoading(true);
+        setAlreadyVotedWarning(false);
         try {
-            await axios.post('/verification/send-otp/', { aadhaar_number: raw });
+            const res = await axios.post('/verification/send-otp/', { aadhaar_number: raw });
+            // Check for already-voted warning from backend
+            if (res.data.already_voted_warning) {
+                setAlreadyVotedWarning(true);
+            }
             setPhase('otp');
             setCountdown(300);
             toast.success('OTP sent to registered mobile number.');
@@ -419,7 +427,20 @@ const VoterVerification = () => {
                                     {t('btn_send_otp')}
                                 </button>
                             </div>
-                            <p className="text-[11px] text-slate-400 mb-5">{t('aadhaar_note')}</p>
+                            <p className="text-[11px] text-slate-400 mb-3">{t('aadhaar_note')}</p>
+
+                            {/* Already Voted Warning Banner */}
+                            {alreadyVotedWarning && (
+                                <div className="mb-5 p-3 bg-red-50 border-2 border-red-300 rounded-lg flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0 animate-pulse" />
+                                    <div>
+                                        <p className="text-sm font-bold text-red-700">{t('already_voted_warning_title') || '⚠️ Already Voted'}</p>
+                                        <p className="text-xs text-red-600 mt-1">
+                                            {t('already_voted_warning_desc') || 'This Aadhaar number belongs to a voter who has already been marked as "Voted" in the system. This attempt is being logged and flagged for admin review.'}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* OTP Section */}
                             {(phase === 'otp' || phase === 'preview') && (
