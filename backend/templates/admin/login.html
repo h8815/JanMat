@@ -1,0 +1,299 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}{{ block.super }}{% endblock %}
+
+{% block bodyclass %}{{ block.super }} login split-layout{% endblock %}
+
+{% block branding %}{% endblock %}
+{% block nav-global %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+{% block header %}{% endblock %}
+{% block breadcrumbs %}{% endblock %}
+{% block content_title %}{% endblock %}
+
+{% block content %}
+<style>
+    /* Absolute suppression of extraneous admin elements on login page */
+    #header, .breadcrumbs, .nav-sidebar, #content-main > h1 {
+        display: none !important;
+    }
+    #content {
+        padding: 0 !important;
+        background: transparent !important;
+    }
+    #main {
+        display: block !important;
+    }
+    .colMS {
+        margin-left: 0 !important;
+    }
+    
+    body.split-layout {
+        background: #FFFFFF !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        min-height: 100vh !important;
+        overflow-x: hidden !important;
+    }
+
+    .split-wrapper {
+        display: flex;
+        width: 100%;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Left Side: Branding Zone */
+    .branding-pane {
+        flex: 1.2;
+        background: #FFFFFF;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+        position: relative;
+        min-height: 100vh;
+    }
+
+    .branding-content {
+        text-align: center;
+        max-width: 400px;
+    }
+
+    .ashoka-logo {
+        width: 140px;
+        margin-bottom: 30px;
+        filter: grayscale(1) contrast(1.2);
+    }
+
+    .eci-text {
+        font-family: 'Noto Serif', serif;
+        font-size: 20px;
+        font-weight: 700;
+        color: #1A1A1B;
+        letter-spacing: 0.05em;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+    }
+
+    .janmat-hero-text {
+        font-family: 'Inter', sans-serif;
+        font-size: 48px;
+        font-weight: 900;
+        color: #00234B;
+        letter-spacing: -0.02em;
+        margin-bottom: 20px;
+    }
+
+    .infra-tag {
+        font-family: 'Inter', sans-serif;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.25em;
+        color: #6B7280;
+        font-weight: 500;
+        border-top: 1px solid #E5E7EB;
+        padding-top: 15px;
+        display: inline-block;
+    }
+
+    /* Right Side: Auth Pane */
+    .auth-pane {
+        flex: 1;
+        background: #1A1A1B;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px;
+        color: #FFFFFF;
+        box-shadow: -20px 0 60px rgba(0,0,0,0.1);
+        min-height: 100vh;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 380px;
+    }
+
+    .auth-card h1 {
+        font-family: 'Noto Serif', serif;
+        font-size: 32px;
+        margin-bottom: 8px;
+        color: #FFFFFF !important;
+        border: none !important;
+    }
+
+    .portal-subtitle {
+        font-family: 'Inter', sans-serif;
+        font-size: 14px;
+        color: #9CA3AF;
+        margin-bottom: 40px;
+        letter-spacing: 0.02em;
+    }
+
+    .form-row {
+        margin-bottom: 30px;
+        position: relative;
+    }
+
+    .form-row label {
+        display: block;
+        color: #6B7280;
+        text-transform: uppercase;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.15em;
+        margin-bottom: 12px;
+    }
+
+    .form-row input {
+        width: 100% !important;
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 2px solid #374151 !important;
+        color: #FFFFFF !important;
+        padding: 12px 0 !important;
+        font-size: 16px !important;
+        border-radius: 0 !important;
+        transition: all 0.3s ease;
+    }
+
+    .form-row input:focus {
+        outline: none !important;
+        border-bottom-color: #FFFFFF !important;
+    }
+
+    .submit-row {
+        margin-top: 40px;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 16px;
+        background: #FFFFFF;
+        color: #1A1A1B;
+        border: none;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 13px;
+    }
+
+    .submit-btn:hover {
+        background: #00234B;
+        color: #FFFFFF;
+        transform: translateY(-2px);
+    }
+
+    .auth-footer {
+        margin-top: 60px;
+        padding-top: 30px;
+        border-top: 1px solid #374151;
+        width: 100%;
+    }
+
+    .encryption-tag {
+        font-size: 9px;
+        color: #4B5563;
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        margin-bottom: 10px;
+        display: block;
+        font-weight: 700;
+    }
+
+    .federal-notice {
+        font-size: 10px;
+        color: #9CA3AF;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        line-height: 1.6;
+        font-weight: 400;
+    }
+
+    .error-box {
+        background: rgba(239, 68, 68, 0.1);
+        border-right: 4px solid #EF4444;
+        padding: 15px;
+        margin-bottom: 30px;
+        font-size: 12px;
+        color: #FCA5A5;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+</style>
+
+<div class="split-wrapper">
+    <!-- Branding Pane -->
+    <div class="branding-pane">
+        <div class="branding-content">
+            <img src="{% static 'assets/images/ashoka-black.png' %}" alt="Ashoka Emblem" class="ashoka-logo">
+            <div class="eci-text">ELECTION COMMISSION OF INDIA</div>
+            <div class="janmat-hero-text">JANMAT</div>
+            <div class="infra-tag">Digital Democracy Infrastructure • 2026</div>
+        </div>
+    </div>
+
+    <!-- Auth Pane -->
+    <div class="auth-pane">
+        <div class="auth-card">
+            <h1>{% trans 'Authorized Log In' %}</h1>
+            <div class="portal-subtitle">JanMat Administrative Portal</div>
+
+            {% if form.errors and not form.non_field_errors %}
+            <div class="error-box">
+                {% trans "PROTOCOL ALERT: Credential Validation Failed" %}
+            </div>
+            {% endif %}
+
+            {% if form.non_field_errors %}
+            {% for error in form.non_field_errors %}
+            <div class="error-box">
+                {{ error }}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <form action="{{ app_path }}" method="post" id="login-form">{% csrf_token %}
+                <div class="form-row">
+                    <label for="id_username">{% trans 'Email / Username' %}</label>
+                    {{ form.username }}
+                </div>
+                <div class="form-row">
+                    <label for="id_password">{% trans 'Secret Key / Password' %}</label>
+                    {{ form.password }}
+                    <input type="hidden" name="next" value="{{ next }}">
+                </div>
+                
+                <div class="form-row">
+                    <button type="submit" class="submit-btn">
+                        {% trans 'Sign In' %}
+                    </button>
+                </div>
+
+                {% url 'admin_password_reset' as password_reset_url %}
+                {% if password_reset_url %}
+                <div style="margin-top: 15px; text-align: right;">
+                    <a href="{{ password_reset_url }}" style="color: #4B5563; font-size: 10px; text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600;">
+                        {% trans 'Recovery Protocol' %}
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+
+            <div class="auth-footer">
+                <span class="encryption-tag">PROTECTED BY AES-256 ENCRYPTION</span>
+                <p class="federal-notice">
+                    FEDERAL ACCESS ONLY &bull; UNAUTHORIZED ACCESS PROHIBITED
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import Voter, OTPCode, BiometricTemplate
 
-@admin.register(Voter)
+# @admin.register(Voter)
 class VoterAdmin(admin.ModelAdmin):
     """Voter admin with tenant isolation"""
     list_display = ('full_name', 'aadhaar_masked', 'gender', 'has_voted', 'verified_at', 'admin_id')
@@ -13,7 +13,7 @@ class VoterAdmin(admin.ModelAdmin):
         return f"XXXX-XXXX-{obj.aadhaar_number[-4:]}"
     aadhaar_masked.short_description = 'Aadhaar (Masked)'
 
-@admin.register(BiometricTemplate)
+# @admin.register(BiometricTemplate)
 class BiometricTemplateAdmin(admin.ModelAdmin):
     """Biometric template admin with tenant isolation"""
     list_display = ('voter_id', 'scan_quality', 'created_at', 'operator_id', 'admin_id')
@@ -21,7 +21,7 @@ class BiometricTemplateAdmin(admin.ModelAdmin):
     search_fields = ('voter_id',)
     readonly_fields = ('template_hash', 'created_at')
 
-@admin.register(OTPCode)
+# @admin.register(OTPCode)
 class OTPCodeAdmin(admin.ModelAdmin):
     """OTP code admin with tenant isolation"""
     list_display = ('aadhaar_masked', 'otp_code', 'expires_at', 'is_used', 'attempts', 'admin_id')

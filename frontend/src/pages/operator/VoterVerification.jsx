@@ -85,6 +85,7 @@ const VoterVerification = () => {
     const [duplicateInfo, setDuplicateInfo] = useState(null);
     const [retryCount, setRetryCount] = useState(0);
     const [scanError, setScanError] = useState('');
+    const [scanQuality, setScanQuality] = useState(0);
     const scanTimeoutRef = useRef(null);
 
     // Simulate Hardware Connection on component mount
@@ -270,12 +271,26 @@ const VoterVerification = () => {
         if (isTimedOut) return;
 
         clearTimeout(scanTimeoutRef.current);
+        
+        // Randomize scan quality: 65 - 100
+        const quality = Math.floor(Math.random() * 36) + 65;
+        setScanQuality(quality);
+
+        // If quality is below 70 (rare-ish case), fail with a quality error
+        if (quality < 70) {
+            setScanState('failed');
+            setScanError(`Poor Scan Quality: ${quality}%`);
+            setRetryCount(prev => prev + 1);
+            toast.error(`Scan quality was too low (${quality}%). Please try again.`);
+            return;
+        }
 
         setLoading(true);
         try {
             const biometricData = `fp_${aadhaar.replace(/\s/g, '')}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
             const res = await axios.post('/verification/biometric-scan/', {
-                biometric_data: biometricData
+                biometric_data: biometricData,
+                quality_score: quality
             });
             if (res.data.status === 'fraud') {
                 setScanState('duplicate');
@@ -314,6 +329,7 @@ const VoterVerification = () => {
         setRetryCount(0);
         setDuplicateInfo(null);
         setFraudAlert(null);
+        setAlreadyVotedWarning(false);
         clearTimeout(scanTimeoutRef.current);
     };
 
@@ -705,9 +721,14 @@ const VoterVerification = () => {
                                             </>
                                         )}
                                         {scanState === 'scanning' && <p className="text-[#22c55e] animate-pulse">&gt; EXECUTING BIOMETRIC CAPTURE...</p>}
-                                        {scanState === 'success' && <p className="text-[#22c55e] font-bold mt-1">&gt; MATCH FOUND. VERICIATION SUCCESSFUL.</p>}
+                                        {(scanState === 'success' || scanState === 'failed' || scanState === 'duplicate') && scanQuality > 0 && (
+                                            <p className={`${scanQuality < 70 ? 'text-red-400' : 'text-slate-400'} font-mono`}>
+                                                &gt; SCAN QUALITY: {scanQuality}% {scanQuality < 70 ? '(LOW)' : '(OPTIMAL)'}
+                                            </p>
+                                        )}
+                                        {scanState === 'success' && <p className="text-[#22c55e] font-bold mt-1">&gt; MATCH FOUND. VERIFICATION SUCCESSFUL.</p>}
                                         {scanState === 'timeout' && <p className="text-red-400 font-bold mt-1">&gt; ERROR: SCAN TIMEOUT. UNABLE TO DETECT.</p>}
-                                        {scanState === 'failed' && <p className="text-red-400 font-bold mt-1">&gt; ERROR: MATCH FAILED OR DATA CORRUPT.</p>}
+                                        {scanState === 'failed' && <p className="text-red-400 font-bold mt-1">&gt; ERROR: {scanError || 'MATCH FAILED OR DATA CORRUPT.'}</p>}
                                         {scanState === 'duplicate' && <p className="text-red-400 font-bold mt-1">&gt; ALERT: DUPLICATE BIOMETRIC DETECTED.</p>}
                                     </div>
                                 </div>

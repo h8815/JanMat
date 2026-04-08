@@ -20,7 +20,9 @@ from ..serializers import (
     OperatorSerializer
 )
 from .utils import generate_temp_password
-from ..utils import send_mail_async
+from ..utils import send_mail_async, get_password_reset_email_template
+from django.conf import settings
+import os
 from verification.services import AuditService
 
 logger = logging.getLogger(__name__)
@@ -165,14 +167,19 @@ def forgot_password(request):
     if not username:
         return Response({'error': 'Username is required'}, status=400)
     
-    user = Admin.objects.filter(username__iexact=username).first()
-    role = 'Admin'
+    user = SuperAdmin.objects.filter(username__iexact=username).first()
+    role = 'SuperAdmin'
+
+    if not user:
+        user = Admin.objects.filter(username__iexact=username).first()
+        role = 'Admin'
     
     if not user:
         user = Operator.objects.filter(username__iexact=username).first()
         role = 'Operator'
         
     if not user:
+        # Return success even if user not found to prevent user enumeration
         return Response({'success': True, 'message': 'If an account exists, a password reset email has been sent.'})
 
     temp_pwd = generate_temp_password()
@@ -181,22 +188,19 @@ def forgot_password(request):
     user.save()
     
     subject = f'JanMat - {role} Password Reset'
-    message = f'''Hello {user.name or role},
+    message, html_message = get_password_reset_email_template(
+        user.name or role, 
+        role, 
+        user.username or user.email, 
+        temp_pwd
+    )
+    
+    attachments = {
+        'logo': os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'mail.png')
+    }
 
-A password reset was requested for your JanMat {role} portal account.
-
-Your new login details:
-Username: {user.username or user.email}
-Temporary Password: {temp_pwd}
-
-Please log in to the portal where you will be prompted to change your password immediately.
-
-If you did not request this reset, please contact your SuperAdmin.
-
-Regards,
-JanMat System'''
     try:
-        send_mail_async(subject, message, [user.email])
+        send_mail_async(subject, message, [user.email], html_message=html_message, attachments=attachments)
     except Exception as e:
         logger.error(f"Failed to send reset email to {user.email}: {e}")
         

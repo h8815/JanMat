@@ -25,7 +25,9 @@ const Settings = ({ user }) => {
     });
 
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [recoveryMessage, setRecoveryMessage] = useState({ type: '', text: '' });
     const [loading, setLoading] = useState(false);
+    const [resetUsername, setResetUsername] = useState('');
 
     const checkPasswordStrength = (pwd) => {
         let score = 0;
@@ -101,6 +103,38 @@ const Settings = ({ user }) => {
                 }
             }
             setMessage({ type: 'error', text: errorMsg });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleForgotPasswordReset = async () => {
+        setRecoveryMessage({ type: '', text: '' });
+        if (!resetUsername) {
+            setRecoveryMessage({ type: 'error', text: 'Please enter your username to confirm reset' });
+            return;
+        }
+
+        if (resetUsername.toLowerCase() !== user.username.toLowerCase()) {
+            setRecoveryMessage({ type: 'error', text: 'Entered username does not match your account' });
+            return;
+        }
+
+        if (!window.confirm('This will reset your password and send new credentials to your registered email. Are you sure?')) return;
+        
+        setLoading(true);
+        try {
+            await axios.post('/auth/forgot-password/', { username: user.username });
+            setRecoveryMessage({ 
+                type: 'success', 
+                text: 'A password reset email has been sent. Please check your inbox and log in with the new credentials.' 
+            });
+            setResetUsername('');
+        } catch (error) {
+            setRecoveryMessage({ 
+                type: 'error', 
+                text: error.response?.data?.error || 'Failed to trigger password reset' 
+            });
         } finally {
             setLoading(false);
         }
@@ -277,7 +311,9 @@ const Settings = ({ user }) => {
 
                 <form onSubmit={handlePasswordSubmit} className="space-y-4 max-w-md">
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">{t('label_current_password')}</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">
+                            {t('label_current_password')}
+                        </label>
                         <input
                             type="password"
                             name="old_password"
@@ -332,6 +368,42 @@ const Settings = ({ user }) => {
                         {t('password_note')}
                     </p>
                 </form>
+            </div>
+
+            {/* Account Recovery Section */}
+            <div className="bg-white rounded-lg border border-red-100 shadow-sm p-6 dark:bg-slate-800 dark:border-red-900/30">
+                <h3 className="text-lg font-bold text-red-700 mb-4 flex items-center gap-2 dark:text-red-400">
+                    <AlertCircle className="w-5 h-5" /> {t('recovery_title', 'Account Recovery')}
+                </h3>
+                
+                <div className="space-y-4 max-w-md">
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {t('forgot_password_desc', 'If you have forgotten your current password and cannot use the form above, you can request a secure reset email.')}
+                    </p>
+                    
+                    <div className="space-y-2">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">
+                            {t('label_confirm_username_to_reset', 'Confirm Username to Reset')}
+                        </label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder={t('placeholder_enter_username', 'Enter your username')}
+                                value={resetUsername}
+                                onChange={(e) => setResetUsername(e.target.value)}
+                                className="flex-1 p-2 border border-slate-300 rounded focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white font-mono"
+                            />
+                            <button
+                                type="button"
+                                onClick={handleForgotPasswordReset}
+                                disabled={loading || !resetUsername}
+                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700 disabled:opacity-50 disabled:bg-slate-400 transition-all shadow-sm"
+                            >
+                                <Clock className="w-4 h-4" /> {t('btn_request_reset', 'Request Reset')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Appearance Settings */}

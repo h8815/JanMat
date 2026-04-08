@@ -654,7 +654,7 @@ const AdminDashboard = () => {
                     <div className="flex gap-4 items-center">
                         {/* Global Controls */}
                         <div className="hidden sm:flex items-center gap-2 md:gap-3 mr-2">
-                            <SystemStatus biometricStatus="N/A" />
+                            {/* <SystemStatus biometricStatus="N/A" /> */}
                             <FontSizeSwitcher />
                             <div className="h-4 w-px bg-slate-200 dark:bg-slate-700" />
                             <LanguageSwitcher />

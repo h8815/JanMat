@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import FraudLog, AuditLog
 
-@admin.register(FraudLog)
+# @admin.register(FraudLog)
 class FraudLogAdmin(admin.ModelAdmin):
     """Fraud log admin with tenant isolation"""
     list_display = ('fraud_type', 'aadhaar_masked', 'booth_number', 'flagged_at', 'reviewed', 'admin')
@@ -22,7 +22,7 @@ class FraudLogAdmin(admin.ModelAdmin):
             return qs
         return qs.filter(admin=request.user)
 
-@admin.register(AuditLog)
+# @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
     """Audit log admin with tenant isolation"""
     list_display = ('action', 'user_type', 'user_id', 'created_at', 'admin')

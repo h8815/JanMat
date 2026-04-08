@@ -12,7 +12,7 @@ from ..models import Operator
 from ..serializers import CreateOperatorSerializer, OperatorSerializer
 from ..permissions import IsAdmin
 from .utils import generate_temp_password, get_shortform
-from ..utils import send_mail_async
+from ..utils import send_mail_async, get_welcome_email_template
 from verification.models import Voter
 from fraud.models import FraudLog
 from verification.services import AuditService
@@ -254,9 +254,21 @@ def bulk_operator_action(request):
                 op.must_change_password = True
                 op.save(update_fields=['password', 'must_change_password'])
                 
-                subject = "Your JanMat Operator Account Credentials"
-                message = f"Welcome {op.name or 'Operator'}!\n\nYour account is ready for Booth {op.booth_id}.\n\nYour login details are:\nUsername: {op.username}\nTemporary Password: {temp_password}\n\nPlease login to the portal. You will be required to change your password immediately upon your first login for security reasons.\n\nFor any issues or queries, please contact your Admin:\nEmail: {admin_email}\nPhone: {admin_phone}\n\nRegards,\nJanMat System"
-                send_mail_async(subject, message, [op.email])
+                subject = f"Welcome to JanMat - Operator Credentials"
+                message, html_message = get_welcome_email_template(
+                    op.name or "Operator",
+                    "Operator",
+                    op.username,
+                    temp_password,
+                    admin_email,
+                    admin_phone,
+                    booth_id=op.booth_id
+                )
+                
+                attachments = {
+                    'logo': os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'mail.png')
+                }
+                send_mail_async(subject, message, [op.email], html_message=html_message, attachments=attachments)
         else:
             return Response({'error': 'Invalid action'}, status=400)
             
@@ -305,10 +317,21 @@ def send_operator_credentials(request, pk):
         admin_email = admin_contact.email if admin_contact else 'N/A'
         admin_phone = admin_contact.phone_number if admin_contact and getattr(admin_contact, 'phone_number', None) else 'N/A'
 
-        subject = "Your JanMat Operator Account Credentials"
-        message = f"Welcome {operator.name or 'Operator'}!\n\nYour account is ready for Booth {operator.booth_id}.\n\nYour login details are:\nUsername: {operator.username}\nTemporary Password: {temp_password}\n\nPlease login to the portal. You will be required to change your password immediately upon your first login for security reasons.\n\nFor any issues or queries, please contact your Admin:\nEmail: {admin_email}\nPhone: {admin_phone}\n\nRegards,\nJanMat System"
+        subject = "Welcome to JanMat - Operator Credentials"
+        message, html_message = get_welcome_email_template(
+            operator.name or "Operator",
+            "Operator",
+            operator.username,
+            temp_password,
+            admin_email,
+            admin_phone,
+            booth_id=operator.booth_id
+        )
         
-        send_mail_async(subject, message, [operator.email])
+        attachments = {
+            'logo': os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'mail.png')
+        }
+        send_mail_async(subject, message, [operator.email], html_message=html_message, attachments=attachments)
         
         return Response({'success': True, 'message': 'Credentials sent successfully.'})
         

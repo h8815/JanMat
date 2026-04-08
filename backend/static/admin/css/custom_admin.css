@@ -1,0 +1,313 @@
+/* 
+   JANMAT SUPER ADMIN: THE DIGITAL BASTION
+   Institutional Design System for the Election Commission of India
+   Aesthetics: Geometric Rigidity | High Contrast | Data Density
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Serif:wght@700&display=swap');
+
+:root {
+    --inst-navy: #00234B;
+    --inst-navy-light: #0D3B66;
+    --inst-graphite: #1A1A1B;
+    --inst-blue: #2563EB;
+    --inst-bg: #F9F9FA;
+    --inst-card: #FFFFFF;
+    --inst-border: #E5E7EB;
+    --inst-border-heavy: #1A1A1B;
+    --inst-text: #111827;
+    --inst-text-sub: #6B7280;
+    --inst-success: #059669;
+    --inst-error: #DC2626;
+
+    /* REINFORCE LIGHT MODE OVERRIDES FOR DJANGO 4+ */
+    --body-bg: #F9F9FA !important;
+    --body-fg: #111827 !important;
+    --header-bg: #FFFFFF !important;
+    --header-color: #00234B !important;
+    --header-link-color: #00234B !important;
+    --breadcrumbs-bg: #FFFFFF !important;
+    --breadcrumbs-fg: #6B7280 !important;
+    --link-fg: #2563EB !important;
+    --link-hover-color: #00234B !important;
+    --link-selected-fg: #00234B !important;
+}
+
+/* 0. FORCE LIGHT MODE (SUPPRESS DARK THEME) */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --body-bg: #F9F9FA !important;
+        --body-fg: #111827 !important;
+        --header-bg: #FFFFFF !important;
+        --breadcrumbs-bg: #FFFFFF !important;
+        --link-fg: #2563EB !important;
+    }
+}
+
+/* 0. GLOBAL PRECISION */
+* {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+body {
+    background-color: var(--inst-bg) !important;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+    color: var(--inst-text) !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    margin: 0;
+}
+
+a {
+    color: var(--inst-blue);
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+a:hover {
+    opacity: 0.8;
+}
+
+/* 1. INSTITUTIONAL HEADER */
+#header {
+    background: #FFFFFF !important;
+    height: 70px !important;
+    padding: 0 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    border-bottom: 2px solid var(--inst-navy) !important;
+    color: var(--inst-navy) !important;
+}
+
+.institutional-brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.institutional-header-logo {
+    height: 40px;
+    width: auto;
+    filter: contrast(1.1);
+}
+
+#branding h1 {
+    font-family: 'Noto Serif', serif !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    margin: 0 !important;
+    color: var(--inst-navy) !important;
+    letter-spacing: -0.01em !important;
+}
+
+#branding h1 a {
+    color: inherit !important;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#user-tools {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    color: var(--inst-text-sub) !important;
+}
+
+#user-tools a, #user-tools button {
+    color: var(--inst-navy) !important;
+    padding: 5px 12px !important;
+    border: 1px solid transparent;
+    background: transparent !important;
+    font-family: inherit !important;
+    font-size: inherit !important;
+    font-weight: inherit !important;
+    text-transform: inherit !important;
+    letter-spacing: inherit !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+}
+
+#user-tools a:hover, #user-tools button:hover {
+    border-color: var(--inst-navy) !important;
+}
+
+#logout-form {
+    display: inline !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#theme-toggle {
+    display: none !important;
+}
+
+/* 2. NAVIGATION & BREADCRUMBS */
+div.breadcrumbs {
+    background: #FFFFFF !important;
+    border-bottom: 1px solid var(--inst-border) !important;
+    padding: 12px 40px !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    font-weight: 700 !important;
+    color: var(--inst-text-sub) !important;
+}
+
+div.breadcrumbs a {
+    color: var(--inst-blue) !important;
+}
+
+/* 3. THE COMMAND BOARD (DASHBOARD) */
+.module {
+    background: #FFFFFF !important;
+    border: 1px solid var(--inst-border) !important;
+    margin-bottom: 30px !important;
+}
+
+.module h2, .module caption, .module h2 a, .module caption a {
+    background: var(--inst-graphite) !important;
+    color: #FFFFFF !important;
+    font-family: 'Noto Serif', serif !important;
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    padding: 15px 25px !important;
+    border: none !important;
+}
+
+/* 4. DATA TABLES (CHANGELISTS) */
+#changelist {
+    border: 1px solid var(--inst-border) !important;
+    background: #FFFFFF !important;
+}
+
+#changelist table thead th {
+    background: var(--inst-graphite) !important;
+    padding: 15px 20px !important;
+    color: #FFFFFF !important;
+    font-size: 11px !important;
+    font-weight: 800 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    border: none !important;
+}
+
+#changelist table thead th a {
+    color: #FFFFFF !important;
+}
+
+#changelist table tbody tr:nth-child(even) {
+    background: #FAFAFB;
+}
+
+#changelist table tbody tr:hover {
+    background: #F1F5F9 !important;
+}
+
+#changelist table tbody td, #changelist table tbody th {
+    padding: 15px 20px !important;
+    border-bottom: 1px solid var(--inst-border) !important;
+    color: var(--inst-text) !important;
+    vertical-align: middle !important;
+}
+
+/* 5. BUTTONS & ACTIONS (THE GO BUTTON FIX) */
+.button, 
+input[type="submit"], 
+input[type="button"], 
+.submit-row input,
+button[name="index"],
+#changelist .actions button.button {
+    background: var(--inst-navy) !important;
+    color: #FFFFFF !important;
+    padding: 10px 22px !important;
+    border: none !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.15em !important;
+    font-size: 11px !important;
+    cursor: pointer !important;
+    display: inline-block !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    line-height: normal !important;
+    height: auto !important;
+}
+
+.button:hover, 
+input[type="submit"]:hover,
+button[name="index"]:hover {
+    background: var(--inst-blue) !important;
+    transform: translateY(-1px) !important;
+}
+
+.actions select {
+    padding: 8px !important;
+    border: 1.5px solid var(--inst-border) !important;
+    height: auto !important;
+    vertical-align: middle !important;
+}
+
+/* 6. SIDEBAR NAVIGATION */
+#nav-sidebar {
+    background: #FFFFFF !important;
+    border-right: 1px solid var(--inst-border) !important;
+    width: 280px !important;
+}
+
+.nav-sidebar .section {
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.12em !important;
+    color: var(--inst-graphite) !important;
+    padding: 20px !important;
+    border-bottom: 2px solid var(--inst-navy) !important;
+    background: #F9FAFB !important;
+}
+
+/* 7. SPLIT LOGIN REINFORCEMENT */
+body.login.split-layout {
+    background: #FFFFFF !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+body.login.split-layout #header,
+body.login.split-layout .breadcrumbs,
+body.login.split-layout #nav-sidebar,
+body.login.split-layout #content-main > h1 {
+    display: none !important;
+}
+
+body.login.split-layout #content {
+    background: transparent !important;
+    padding: 0 !important;
+    width: 100% !important;
+}
+
+/* Professional Badge System */
+.status-badge {
+    font-size: 10px;
+    font-weight: 900;
+    padding: 4px 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.status-badge-active {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-badge-inactive {
+    background: #FEE2E2;
+    color: #991B1B;
+}
