@@ -49,3 +49,14 @@ Thumbs.db
 *.tmp
 *.log
 logs/*
+
+# Code Review Graph
+.claude/skills
+.claude/settings.json
+.cursorrules
+.windsurfrules
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+.mcp.json
+.opencode.json
