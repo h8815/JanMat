@@ -43,6 +43,17 @@ class AbstractJanmatActor(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
 
+    # Credential Validity Window — required on create via API/admin forms
+    # Nullable in DB only to support a zero-downtime migration of existing rows.
+    valid_from = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Credential access start date/time (IST). Login rejected before this."
+    )
+    valid_until = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Credential access end date/time (IST). Login rejected after this."
+    )
+
     class Meta:
         abstract = True
 
@@ -59,6 +70,8 @@ class AbstractJanmatActor(models.Model):
 
 class SuperAdmin(AbstractJanmatActor):
     """Top-level Entity: Election Commission Officials"""
+    must_change_password = models.BooleanField(default=False)
+
     class Meta:
         db_table = 'super_admins'
         verbose_name = 'Super Admin'
@@ -78,6 +91,9 @@ class Admin(AbstractJanmatActor):
     class Meta:
         db_table = 'admins'
         verbose_name = 'Admin'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
 class Operator(AbstractJanmatActor):
     """Field-level Entity: Booth Operator"""

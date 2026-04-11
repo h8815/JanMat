@@ -46,11 +46,42 @@ def get_tokens_for_user(user, role):
         'access': str(refresh.access_token),
     }
 
+def check_validity_window(user, role):
+    """Enforce valid_from / valid_until window for Admin and Operator actors."""
+    if role == SystemRoles.SUPERUSER:
+        return None  # SuperAdmins are exempt
+    now = timezone.now()
+    valid_from = getattr(user, 'valid_from', None)
+    valid_until = getattr(user, 'valid_until', None)
+    if valid_from and now < valid_from:
+        return Response(
+            {
+                'error': 'Credential access window has not started yet / प्रमाण-पत्र अभी सक्रिय नहीं हुआ।',
+                'error_code': 'ACCESS_NOT_STARTED',
+                'valid_from': valid_from.isoformat(),
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+    if valid_until and now > valid_until:
+        return Response(
+            {
+                'error': 'Credential access window has expired / प्रमाण-पत्र की वैधता समाप्त हो गई है।',
+                'error_code': 'ACCESS_EXPIRED',
+                'valid_until': valid_until.isoformat(),
+            },
+            status=status.HTTP_403_FORBIDDEN
+        )
+    return None
+
 def process_successful_login(user, role, request):
     """Helper method to deduplicate login response gathering"""
     if not user.is_active:
         return Response({'error': 'Account is disabled'}, status=status.HTTP_403_FORBIDDEN)
-        
+
+    # Enforce credential validity window
+    window_error = check_validity_window(user, role)
+    if window_error:
+        return window_error
     user.last_login = timezone.now()
     user.save(update_fields=['last_login'])
     
@@ -294,12 +325,21 @@ def setup_initial_password(request):
     user = None
     role = None
     
+    # Check SuperAdmin first
     try:
-        ad = Admin.objects.get(Q(username__iexact=username) | Q(email__iexact=username))
-        if check_password(temp_password, ad.password):
-            user, role = ad, SystemRoles.ADMIN
-    except Admin.DoesNotExist:
+        sa = SuperAdmin.objects.get(Q(username__iexact=username) | Q(email__iexact=username))
+        if check_password(temp_password, sa.password):
+            user, role = sa, SystemRoles.SUPERUSER
+    except SuperAdmin.DoesNotExist:
         pass
+
+    if not user:
+        try:
+            ad = Admin.objects.get(Q(username__iexact=username) | Q(email__iexact=username))
+            if check_password(temp_password, ad.password):
+                user, role = ad, SystemRoles.ADMIN
+        except Admin.DoesNotExist:
+            pass
         
     if not user:
         try:

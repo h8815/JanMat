@@ -51,12 +51,22 @@ class CreateOperatorSerializer(serializers.Serializer):
     email = serializers.EmailField()
     booth_id = serializers.CharField(max_length=50, required=False, allow_blank=True)
     full_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=20, required=True)
 
     def validate_email(self, value):
         email = value.lower().strip()
         if Operator.objects.filter(email=email).exists():
             raise serializers.ValidationError("Operator with this email already exists.")
         return email
+
+    def validate(self, data):
+        valid_from = data.get('valid_from')
+        valid_until = data.get('valid_until')
+        if valid_from and valid_until and valid_until <= valid_from:
+            raise serializers.ValidationError(
+                "'valid_until' must be after 'valid_from'."
+            )
+        return data
 
 class SuperAdminSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
@@ -72,7 +82,8 @@ class AdminSerializer(serializers.ModelSerializer):
     role = serializers.SerializerMethodField()
     class Meta:
         model = Admin
-        fields = ['id', 'username', 'email', 'name', 'role', 'state', 'district', 'tehsil', 'created_at', 'last_login']
+        fields = ['id', 'username', 'email', 'name', 'role', 'state', 'district', 'tehsil',
+                  'valid_from', 'valid_until', 'created_at', 'last_login']
         read_only_fields = ['id', 'created_at', 'last_login']
 
     def get_role(self, obj):
@@ -84,7 +95,8 @@ class OperatorSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Operator
-        fields = ['id', 'username', 'email', 'full_name', 'booth_id', 'role', 'must_change_password', 'is_active', 'created_at', 'last_login']
+        fields = ['id', 'username', 'email', 'full_name', 'booth_id', 'role',
+                  'valid_from', 'valid_until', 'must_change_password', 'is_active', 'created_at', 'last_login']
         read_only_fields = ['id', 'created_at', 'last_login', 'email', 'username']
 
     def get_role(self, obj):

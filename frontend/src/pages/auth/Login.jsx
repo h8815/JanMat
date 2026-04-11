@@ -27,7 +27,11 @@ const Login = () => {
     const [forgotMessage, setForgotMessage] = useState({ type: '', text: '' });
 
     useEffect(() => {
-        // Basic validtion or redirection if needed
+        const reason = sessionStorage.getItem('logoutReason');
+        if (reason) {
+            setError(reason);
+            sessionStorage.removeItem('logoutReason');
+        }
     }, [role]);
 
     const handleForgotPassword = async (e) => {

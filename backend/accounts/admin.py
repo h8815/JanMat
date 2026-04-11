@@ -1,4 +1,5 @@
 import os
+from django import forms
 from django.contrib import admin
 from django.contrib import messages
 from django.contrib.auth.hashers import make_password
@@ -7,7 +8,8 @@ from .models import SuperAdmin, Admin, Operator
 from .utils import send_mail_async, get_welcome_email_template, generate_temp_password, get_shortform
 from django.urls import path, reverse
 from django.utils.html import format_html
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
+from django.http import HttpResponseRedirect
 import logging
 
 logger = logging.getLogger(__name__)
@@ -47,6 +49,47 @@ def send_credentials_email_action(modeladmin, request, queryset):
         sent_count += 1
     
     modeladmin.message_user(request, f"Successfully sent credentials to {sent_count} user(s).", messages.SUCCESS)
+
+class UpdateValidityActionForm(forms.Form):
+    valid_from = forms.DateTimeField(widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}), required=True)
+    valid_until = forms.DateTimeField(widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}), required=True)
+    cascade_validity = forms.BooleanField(
+        required=False,
+        label="Update Operator Validity Windows? (Applies to Admins only)",
+        help_text="Check this box if you want ALL operators managed by the selected Admins to inherit this exact time window."
+    )
+
+@admin.action(description="Update Credential Validity Window")
+def update_validity_window_action(modeladmin, request, queryset):
+    if 'apply' in request.POST:
+        form = UpdateValidityActionForm(request.POST)
+        if form.is_valid():
+            valid_from = form.cleaned_data['valid_from']
+            valid_until = form.cleaned_data['valid_until']
+            cascade = form.cleaned_data.get('cascade_validity', False)
+            
+            count = 0
+            for obj in queryset:
+                obj.valid_from = valid_from
+                obj.valid_until = valid_until
+                obj.save(update_fields=['valid_from', 'valid_until'])
+                count += 1
+                
+                if cascade and hasattr(obj, 'operators'):
+                    obj.operators.update(valid_from=valid_from, valid_until=valid_until)
+
+            modeladmin.message_user(request, f"Updated validity window for {count} record(s).", messages.SUCCESS)
+            return HttpResponseRedirect(request.get_full_path())
+    else:
+        form = UpdateValidityActionForm()
+
+    return render(request, 'admin/update_validity_action.html', {
+        'items': queryset,
+        'form': form,
+        'action_name': request.POST.get('action'),
+        'title': 'Bulk Update Credential Validity',
+        **modeladmin.admin_site.each_context(request),
+    })
 
 class SendCredentialsMixin:
     """Mixin to add 'Send Credentials' functionality to admin classes"""
@@ -128,17 +171,52 @@ class SuperAdminAdmin(SendCredentialsMixin, admin.ModelAdmin):
 # ADMIN
 # ============================================================================
 
+class AdminAdminForm(forms.ModelForm):
+    cascade_validity = forms.BooleanField(
+        label="Update Operator Validity Windows? / क्या इस एडमिन के सभी ऑपरेटरों की वैधता समय-सीमा (विंडो) भी अपडेट करनी है?",
+        required=False,
+        initial=False,
+        help_text="Check this box if you want ALL operators managed by this Admin to suddenly inherit strings representing valid_from and valid_until exactly matching the values chosen above."
+    )
+
+    class Meta:
+        model = Admin
+        fields = '__all__'
+
 @admin.register(Admin)
 class AdminAdmin(SendCredentialsMixin, admin.ModelAdmin):
-    list_display = ('username', 'email', 'name', 'phone_number', 'state', 'district', 'tehsil', 'created_by', 'is_active', 'send_credentials_button')
+    form = AdminAdminForm
+    list_display = ('username', 'email', 'name', 'phone_number', 'state', 'district', 'tehsil',
+                    'created_by', 'is_active', 'get_validity_badge', 'send_credentials_button')
     search_fields = ('email', 'name', 'phone_number', 'state', 'district')
     list_filter = ('created_by', 'state', 'district')
-    actions = [send_credentials_email_action]
+    actions = [send_credentials_email_action, update_validity_window_action]
     
     exclude = ('password', 'created_by', 'username')
 
+    fieldsets = [
+        ('Identity', {'fields': ('name', 'email', 'phone_number', 'is_active')}),
+        ('Geographic Jurisdiction', {'fields': ('state', 'district', 'tehsil')}),
+        ('Credential Validity Window प्रमाण-पत्र दिनांक', {
+            'description': 'Both fields are required. Admin cannot login outside this window.',
+            'fields': ('valid_from', 'valid_until', 'cascade_validity')
+        }),
+    ]
+
     class Media:
         js = ('accounts/js/admin_geo.js',)
+
+    def get_validity_badge(self, obj):
+        from django.utils import timezone as tz
+        now = tz.now()
+        if not obj.valid_from and not obj.valid_until:
+            return format_html('<span style="color:#6b7280;font-weight:600;">&#9679; OPEN</span>')
+        if obj.valid_until and now > obj.valid_until:
+            return format_html('<span style="color:#DC2626;font-weight:600;">&#9679; EXPIRED</span>')
+        if obj.valid_from and now < obj.valid_from:
+            return format_html('<span style="color:#f59e0b;font-weight:600;">&#9679; PENDING</span>')
+        return format_html('<span style="color:#16a34a;font-weight:600;">&#9679; ACTIVE</span>')
+    get_validity_badge.short_description = 'Window Status'
     
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -173,6 +251,9 @@ class AdminAdmin(SendCredentialsMixin, admin.ModelAdmin):
             obj.username = final_username
             
         super().save_model(request, obj, form, change)
+        
+        if change and form.cleaned_data.get('cascade_validity'):
+            obj.operators.update(valid_from=obj.valid_from, valid_until=obj.valid_until)
 
 # ============================================================================
 # OPERATOR
@@ -180,13 +261,23 @@ class AdminAdmin(SendCredentialsMixin, admin.ModelAdmin):
 
 @admin.register(Operator)
 class OperatorAdmin(SendCredentialsMixin, admin.ModelAdmin):
-    list_display = ('get_username_display', 'name', 'phone_number', 'booth_id', 'get_admin_display', 'get_status_badge', 'send_credentials_button')
+    list_display = ('get_username_display', 'name', 'phone_number', 'booth_id',
+                    'get_admin_display', 'get_status_badge', 'get_validity_badge', 'send_credentials_button')
     search_fields = ('email', 'name', 'phone_number', 'booth_id')
     list_filter = ('is_active', 'created_by')
-    actions = [send_credentials_email_action]
+    actions = [send_credentials_email_action, update_validity_window_action]
     
     exclude = ('password', 'username')
-    
+
+    fieldsets = [
+        ('Identity', {'fields': ('name', 'email', 'phone_number', 'is_active', 'created_by')}),
+        ('Booth Assignment', {'fields': ('booth_id',)}),
+        ('Credential Validity Window प्रमाण-पत्र दिनांक', {
+            'description': 'Both fields are required. Operator cannot login outside this window.',
+            'fields': ('valid_from', 'valid_until')
+        }),
+    ]
+
     def get_username_display(self, obj):
         return format_html('<strong style="color: #00234B;">{}</strong>', obj.username or obj.email)
     get_username_display.short_description = 'Username / Email'
@@ -202,6 +293,18 @@ class OperatorAdmin(SendCredentialsMixin, admin.ModelAdmin):
             return format_html('<span class="status-badge status-badge-active">● ACTIVE</span>')
         return format_html('<span class="status-badge status-badge-inactive">● INACTIVE</span>')
     get_status_badge.short_description = 'Status'
+
+    def get_validity_badge(self, obj):
+        from django.utils import timezone as tz
+        now = tz.now()
+        if not obj.valid_from and not obj.valid_until:
+            return format_html('<span style="color:#6b7280;font-weight:600;">&#9679; OPEN</span>')
+        if obj.valid_until and now > obj.valid_until:
+            return format_html('<span style="color:#DC2626;font-weight:600;">&#9679; EXPIRED</span>')
+        if obj.valid_from and now < obj.valid_from:
+            return format_html('<span style="color:#f59e0b;font-weight:600;">&#9679; PENDING</span>')
+        return format_html('<span style="color:#16a34a;font-weight:600;">&#9679; ACTIVE</span>')
+    get_validity_badge.short_description = 'Window'
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -252,3 +355,68 @@ try:
     admin.site.unregister(Group)
 except admin.sites.NotRegistered:
     pass
+
+
+# ============================================================================
+# SUPERADMIN FORCED PASSWORD CHANGE — Custom Admin View
+# ============================================================================
+from django.http import HttpResponseRedirect
+from django.views.decorators.csrf import csrf_protect
+from django.utils.decorators import method_decorator
+from django.contrib.auth.hashers import check_password as _check_pwd
+from django.template.response import TemplateResponse
+
+
+def _superadmin_change_password_view(request):
+    """
+    Custom Django admin view at /janmat-superadmin/change-password/.
+    Handles the forced first-login password change for SuperAdmin accounts.
+    """
+    # Only accessible when logged in via the Django admin session
+    if not request.user.is_authenticated:
+        return HttpResponseRedirect(f'/janmat-superadmin/login/?next={request.path}')
+
+    # Resolve the actual SuperAdmin profile
+    sa = getattr(request.user, 'super_admin_profile', None)
+    if sa is None:
+        # Not a SuperAdmin session — just redirect to admin index
+        return HttpResponseRedirect('/janmat-superadmin/')
+
+    error = None
+
+    if request.method == 'POST':
+        old_pwd = request.POST.get('old_password', '')
+        new_pwd = request.POST.get('new_password', '')
+        confirm_pwd = request.POST.get('confirm_password', '')
+
+        if not _check_pwd(old_pwd, sa.password):
+            error = 'Current / temporary password is incorrect.'
+        elif len(new_pwd) < 12:
+            error = 'New password must be at least 12 characters long.'
+        elif new_pwd != confirm_pwd:
+            error = 'Passwords do not match.'
+        else:
+            sa.password = make_password(new_pwd)
+            sa.must_change_password = False
+            sa.save(update_fields=['password', 'must_change_password'])
+            messages.success(request, 'Password changed successfully. Welcome to the JanMat Administration Portal.')
+            return HttpResponseRedirect('/janmat-superadmin/')
+
+    context = {
+        'title': 'Change Password',
+        'error': error,
+        'has_permission': True,
+    }
+    return TemplateResponse(request, 'admin/change_password.html', context)
+
+
+# Extend admin.site URLs to include the change-password URL
+_original_get_urls = admin.site.__class__.get_urls
+
+def _patched_get_urls(self):
+    custom_urls = [
+        path('change-password/', admin.site.admin_view(_superadmin_change_password_view), name='superadmin_change_password'),
+    ]
+    return custom_urls + _original_get_urls(self)
+
+admin.site.__class__.get_urls = _patched_get_urls

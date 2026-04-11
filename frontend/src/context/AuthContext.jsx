@@ -26,22 +26,29 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = useCallback(() => {
+    const logout = useCallback((reasonMsg = null) => {
         const role = user?.role;
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
         setUser(null);
-        if (role === ROLES.OPERATOR) {
-            navigate('/login?role=operator');
+        
+        let path = '/login';
+        if (role === ROLES.OPERATOR) path = '/login?role=operator';
+        else if (role === ROLES.ADMIN) path = '/login?role=admin';
+
+        if (reasonMsg && typeof reasonMsg === 'string') {
+            sessionStorage.setItem('logoutReason', reasonMsg);
+            window.location.href = path;
         } else {
-            navigate('/login?role=admin');
+            navigate(path);
         }
     }, [user, navigate]);
 
     useEffect(() => {
-        const handleUnauthorized = () => {
+        const handleUnauthorized = (e) => {
             console.warn('Unauthorized event caught. Logging out.');
-            logout();
+            const reason = e.detail?.detail || e.detail?.error || 'Your session has expired due to inactivity or credential closing.';
+            logout(reason);
         };
 
         window.addEventListener('unauthorized', handleUnauthorized);
@@ -65,6 +72,30 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         initAuth();
     }, []);
+
+    useEffect(() => {
+        let timeoutId;
+        if (user && user.valid_until) {
+            const validUntilTime = new Date(user.valid_until).getTime();
+            const now = new Date().getTime();
+            const timeRemaining = validUntilTime - now;
+
+            if (timeRemaining > 0 && timeRemaining <= 2147483647) {
+                // Schedule forced logout precisely when the credential window closes
+                timeoutId = setTimeout(() => {
+                    const eventMsg = { detail: 'Credential access window has expired / प्रमाण-पत्र की वैधता समाप्त हो गई है', code: 'access_expired' };
+                    window.dispatchEvent(new CustomEvent('unauthorized', { detail: eventMsg }));
+                }, timeRemaining);
+            } else if (timeRemaining <= 0) {
+                // If it's already expired somehow
+                const eventMsg = { detail: 'Credential access window has expired / प्रमाण-पत्र की वैधता समाप्त हो गई है', code: 'access_expired' };
+                window.dispatchEvent(new CustomEvent('unauthorized', { detail: eventMsg }));
+            }
+        }
+        return () => {
+            if (timeoutId) clearTimeout(timeoutId);
+        };
+    }, [user]);
 
     const login = async (email, password, endpoint) => {
         try {
@@ -94,6 +125,21 @@ export const AuthProvider = ({ children }) => {
             return true;
         } catch (error) {
             console.error("Login failed", error);
+            // Surface validity window errors with a structured payload so Login.jsx
+            // can display the correct bilingual institutional message.
+            const errorCode = error.response?.data?.error_code;
+            if (errorCode === 'ACCESS_EXPIRED') {
+                throw Object.assign(new Error('ACCESS_EXPIRED'), {
+                    errorCode: 'ACCESS_EXPIRED',
+                    message: 'Credential access window has expired / प्रमाण-पत्र की वैधता समाप्त हो गई है।',
+                });
+            }
+            if (errorCode === 'ACCESS_NOT_STARTED') {
+                throw Object.assign(new Error('ACCESS_NOT_STARTED'), {
+                    errorCode: 'ACCESS_NOT_STARTED',
+                    message: 'Credential access window has not started yet / प्रमाण-पत्र अभी सक्रिय नहीं हुआ।',
+                });
+            }
             throw error;
         }
     };

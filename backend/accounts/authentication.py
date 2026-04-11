@@ -49,6 +49,17 @@ class JanmatTokenAuthentication(JWTAuthentication):
             if not user.is_active:
                 raise AuthenticationFailed('User is inactive', code='user_inactive')
 
+            from django.utils import timezone
+            if role in [SystemRoles.ADMIN, SystemRoles.OPERATOR]:
+                now = timezone.now()
+                valid_from = getattr(user, 'valid_from', None)
+                valid_until = getattr(user, 'valid_until', None)
+                
+                if valid_from and now < valid_from:
+                    raise AuthenticationFailed('Access window has not started yet / पहुँच अभी प्रारंभ नहीं हुई', code='access_not_started')
+                if valid_until and now > valid_until:
+                    raise AuthenticationFailed('Access window has expired / प्रमाण-पत्र की वैधता समाप्त हो गई है', code='access_expired')
+
             # Attach role attribute dynamically for permissions
             user.role = role
             return user

@@ -350,6 +350,7 @@ const OperatorList = () => {
                                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400 cursor-pointer hover:text-janmat-blue" onClick={() => handleSort('fraud')}>
                                     {t('col_fraud_flags')} <SortIcon column="fraud" />
                                 </th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">Window</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">{t('col_status')}</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 uppercase tracking-wider dark:text-slate-400">{t('col_actions')}</th>
                             </tr>
@@ -416,6 +417,17 @@ const OperatorList = () => {
                                             )}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap">
+                                            {(() => {
+                                                const now = new Date();
+                                                const from = op.valid_from ? new Date(op.valid_from) : null;
+                                                const until = op.valid_until ? new Date(op.valid_until) : null;
+                                                if (!from && !until) return <span className="text-xs text-slate-400 font-mono">OPEN</span>;
+                                                if (until && now > until) return <span className="px-2 py-0.5 text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">EXPIRED</span>;
+                                                if (from && now < from) return <span className="px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">PENDING</span>;
+                                                return <span className="px-2 py-0.5 text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">ACTIVE</span>;
+                                            })()}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
                                             <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${op.is_active ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                                 }`}>
                                                 {op.is_active ? 'Active' : 'Inactive'}
@@ -480,7 +492,8 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
     const { t } = useTranslation();
     const [formData, setFormData] = useState({
         full_name: '',
-        email: ''
+        email: '',
+        phone_number: '',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -537,6 +550,10 @@ const AddOperatorModal = ({ onClose, onSuccess }) => {
                         <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full p-3 sm:p-2 min-h-[44px] border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
                     </div>
 
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1 dark:text-slate-300">Phone Number</label>
+                        <input type="tel" name="phone_number" value={formData.phone_number} onChange={handleChange} className="w-full p-3 sm:p-2 min-h-[44px] border rounded focus:ring-2 focus:ring-janmat-blue outline-none dark:bg-slate-700 dark:border-slate-600 dark:text-white" required />
+                    </div>
 
 
                     <div className="pt-4 pb-8 sm:pb-0 flex flex-col sm:flex-row justify-end gap-3">

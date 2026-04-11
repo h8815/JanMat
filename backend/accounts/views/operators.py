@@ -64,10 +64,13 @@ def create_operator(request):
                 email=serializer.validated_data['email'],
                 password=make_password(temp_password),
                 name=serializer.validated_data.get('full_name', ''),
+                phone_number=serializer.validated_data.get('phone_number', ''),
                 booth_id=generated_booth_id,
                 created_by=admin_ref,
                 must_change_password=True,
-                is_active=True
+                is_active=True,
+                valid_from=admin_ref.valid_from if admin_ref else None,
+                valid_until=admin_ref.valid_until if admin_ref else None,
             )
             
         AuditService.log_action(
