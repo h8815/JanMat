@@ -108,6 +108,9 @@ def get_welcome_email_template(obj_name, role, username, temp_pwd, creator_email
     booth_html_en = f'<p style="font-size: 15px; color: #00234B; font-weight: 700;">Deployment: Booth {booth_id}</p>' if booth_id else ""
     booth_html_hi = f'<p style="font-size: 16px; color: #00234B; font-weight: 700;">तैनाती: बूथ {booth_id}</p>' if booth_id else ""
     
+    # Dynamic Domain Routing based on Role
+    portal_url = "https://janmatsuper.cybrmoon.space/janmat-superadmin" if role.lower() == "superadmin" else "https://janmat.cybrmoon.space"
+    
     html_message = f'''
     <div style="font-family: 'Inter', system-ui, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #E5E7EB; background: #FFFFFF; color: #111827; line-height: 1.6;">
         <!-- Header -->
@@ -150,7 +153,7 @@ def get_welcome_email_template(obj_name, role, username, temp_pwd, creator_email
 
             <!-- Login Action -->
             <div style="margin-top: 50px; text-align: center;">
-                <a href="https://janmat.cybrmoon.space" style="background: #00234B; color: #FFFFFF; padding: 15px 35px; text-decoration: none; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 0.15em; display: inline-block;">
+                <a href="{portal_url}" style="background: #00234B; color: #FFFFFF; padding: 15px 35px; text-decoration: none; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 0.15em; display: inline-block;">
                     Authorized Portal Login
                 </a>
             </div>
@@ -178,6 +181,9 @@ def get_password_reset_email_template(obj_name, role, username, temp_pwd, creato
     Detailed Password Reset Template (Bilingual)
     """
     message = f"JanMat Password Recovery: {obj_name}\n\nTemporary credentials have been generated.\nUsername: {username}\nTemp Password: {temp_pwd}"
+    
+    # Dynamic Domain Routing based on Role
+    portal_url = "https://janmatsuper.cybrmoon.space" if role.lower() == "superadmin" else "https://janmat.cybrmoon.space"
     
     html_message = f'''
     <div style="font-family: 'Inter', system-ui, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #FCA5A5; background: #FFFFFF; color: #111827; line-height: 1.6;">
@@ -219,7 +225,7 @@ def get_password_reset_email_template(obj_name, role, username, temp_pwd, creato
 
             <!-- Login Action -->
             <div style="margin-top: 50px; text-align: center;">
-                <a href="https://janmat.cybrmoon.space" style="background: #DC2626; color: #FFFFFF; padding: 15px 35px; text-decoration: none; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 0.15em; display: inline-block;">
+                <a href="{portal_url}" style="background: #DC2626; color: #FFFFFF; padding: 15px 35px; text-decoration: none; font-weight: 900; font-size: 13px; text-transform: uppercase; letter-spacing: 0.15em; display: inline-block;">
                     Secure Emergency Login
                 </a>
             </div>
