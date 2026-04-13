@@ -3,9 +3,11 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { AlertCircle, Loader2, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { ROLES } from '../../constants/roles';
+import { useTranslation } from 'react-i18next';
 import api from '../../api/axios';
 
 const Login = () => {
+    const { t } = useTranslation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -43,7 +45,7 @@ const Login = () => {
             const res = await api.post('/auth/forgot-password/', { username: forgotUsername });
             setForgotMessage({ type: 'success', text: res.data.message });
         } catch (err) {
-            setForgotMessage({ type: 'error', text: err.response?.data?.error || 'Failed to request password reset.' });
+            setForgotMessage({ type: 'error', text: err.response?.data?.error || t('error_loading') });
         } finally {
             setForgotLoading(false);
         }
@@ -60,7 +62,6 @@ const Login = () => {
             const result = await login(username, password, endpoint, role);
 
             if (result && result.requiresPasswordReset) {
-                // Redirect to the password setup page and pass the username via React Router state
                 navigate('/setup-password', {
                     state: {
                         username: result.username
@@ -69,168 +70,184 @@ const Login = () => {
                 return;
             }
 
-            // Redirect based on role if login fully succeeds
             if (role === ROLES.ADMIN) {
                 navigate('/admin-dashboard');
             } else {
                 navigate('/operator-dashboard');
             }
         } catch (err) {
-            // Prioritize backend error message (e.g., "Invalid credentials")
             const backendMsg = err.response?.data?.error;
-            setError(backendMsg || err.message || 'Invalid credentials. Please contact support.');
+            setError(backendMsg || err.message || t('login_invalid_creds'));
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-tricolor relative">
-            <div className="absolute inset-0 bg-black/55"></div>
+        <div className="min-h-screen relative font-sans overflow-x-hidden overflow-y-auto bg-slate-950 flex flex-col justify-center">
+            {/* Cinematic Background */}
+            <div className="fixed inset-0 bg-[url('/assets/images/indiaGate.png')] bg-cover bg-center opacity-30"></div>
+            <div className="fixed inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-transparent"></div>
 
-            <main className="relative z-10 min-h-screen flex items-center justify-center p-6">
-                <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+            <main className="relative z-10 flex items-center justify-center p-4 md:p-8 w-full max-w-[1400px] mx-auto min-h-screen">
+                <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center my-auto">
 
-                    {/* Left Side: Branding */}
-                    <div className="md:col-span-1 text-center md:text-left px-6">
+                    {/* Left Side: Branding & Asymmetrical Void */}
+                    <div className="lg:col-span-5 md:pr-8 text-center lg:text-left pt-6 lg:pt-0">
                         <img
                             src="/assets/images/ashoka.png"
                             alt="Ashoka Emblem"
-                            className="mx-auto md:mx-0 w-20 h-20 object-contain"
-                            onError={(e) => { e.target.src = 'https://placehold.co/80x80?text=Emblem'; }}
+                            className="mx-auto lg:mx-0 w-20 h-20 lg:w-28 lg:h-28 object-contain brightness-0 invert drop-shadow-md"
+                            onError={(e) => { e.target.src = 'https://placehold.co/128x128?text=Emblem'; }}
                         />
-                        <h1 className="mt-4 text-2xl font-semibold text-white">
-                            {role === ROLES.ADMIN ? 'Admin Portal' : 'JanMat — Booth Operator Login'}
+                        <h1 className="mt-6 text-3xl lg:text-4xl font-black text-white tracking-tighter uppercase leading-tight">
+                            {role === ROLES.ADMIN ? t('admin_portal_title') : t('operator_login_title')}
                         </h1>
-                        <p className="mt-2 text-slate-200 max-w-sm">
-                            {role === 'ADMIN'
-                                ? 'Restricted access for Election Commission administrators. All access is logged and audited.'
-                                : 'Authorized access only. All actions are logged.'
+                        <p className="mt-3 text-slate-300 text-base font-medium leading-relaxed max-w-sm mx-auto lg:mx-0 lg:border-l-2 border-blue-500/50 lg:pl-4 py-1">
+                            {role === ROLES.ADMIN
+                                ? t('admin_login_desc')
+                                : t('operator_login_desc')
                             }
                         </p>
-                        <Link to="/" className="inline-block mt-6 text-sm text-white underline">
-                            Back to Role Selection
-                        </Link>
+                        <div className="mt-8 lg:mt-10">
+                            <Link to="/" className="inline-flex px-5 py-2.5 text-xs font-bold text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-full transition-all gap-2 items-center tracking-wide uppercase backdrop-blur-sm">
+                                <span>←</span> {t('back_to_selection')}
+                            </Link>
+                        </div>
                     </div>
 
-                    {/* Right Side: Form */}
-                    <div className="md:col-span-2">
-                        <div className="bg-white rounded-lg p-8 card-shadow border border-slate-200 max-w-xl mx-auto">
-                            {isForgotPassword ? (
-                                <form onSubmit={handleForgotPassword} noValidate>
-                                    <h2 className="text-xl font-bold text-slate-800 mb-2">Reset Password</h2>
-                                    <p className="text-sm text-slate-500 mb-6">Enter your email address and we'll send you a temporary password. You will be required to change it immediately after logging in.</p>
+                    {/* Spacer for intentional asymmetry */}
+                    <div className="hidden lg:block lg:col-span-1"></div>
 
-                                    <div className="mb-6">
-                                        <label htmlFor="forgotUsername" className="block text-sm font-medium text-slate-700">Username</label>
+                    {/* Right Side: Glassmorphic Form Workspace */}
+                    <div className="lg:col-span-6 w-full max-w-[460px] mx-auto lg:mr-0">
+                        <div className="bg-[#0b1326]/70 backdrop-blur-2xl rounded-2xl p-6 md:p-10 shadow-2xl border border-white/10 relative overflow-hidden">
+                            {/* Inner ambient glow */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+
+                            {isForgotPassword ? (
+                                <form onSubmit={handleForgotPassword} noValidate className="relative z-10 space-y-5">
+                                    <div>
+                                        <h2 className="text-2xl font-black text-white mb-1 uppercase tracking-tight">{t('reset_password_title')}</h2>
+                                        <p className="text-xs text-slate-400 font-medium leading-relaxed pr-8">{t('reset_password_desc')}</p>
+                                    </div>
+
+                                    <div>
+                                        <label htmlFor="forgotUsername" className="block text-[11px] font-bold text-slate-300 mb-1.5 tracking-wider uppercase">{t('username_label')}</label>
                                         <input
                                             id="forgotUsername"
                                             type="text"
                                             required
                                             value={forgotUsername}
                                             onChange={(e) => setForgotUsername(e.target.value)}
-                                            className="mt-2 w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue outline-none"
-                                            placeholder="Enter your username"
+                                            className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-400 outline-none transition-all placeholder:text-slate-500 text-white font-medium shadow-inner text-sm"
+                                            placeholder={t('username_forgot_placeholder')}
                                         />
                                     </div>
 
                                     {forgotMessage.text && (
-                                        <div className={`mb-6 p-3 border rounded text-sm flex gap-2 items-start ${forgotMessage.type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
-                                            {forgotMessage.type === 'success' ? <CheckCircle className="w-5 h-5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
+                                        <div className={`p-4 rounded-xl text-xs font-bold flex gap-3 items-start border backdrop-blur-md ${forgotMessage.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-red-500/10 border-red-500/30 text-red-300'}`}>
+                                            {forgotMessage.type === 'success' ? <CheckCircle className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
                                             <p>{forgotMessage.text}</p>
                                         </div>
                                     )}
 
-                                    <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-3 pt-2">
                                         <button
                                             type="submit"
                                             disabled={forgotLoading}
-                                            className="w-full px-4 py-3 bg-janmat-blue text-white font-medium rounded-md hover:bg-janmat-hover focus:ring-2 focus:ring-offset-1 disabled:opacity-50 flex items-center justify-center gap-2"
+                                            className="w-full px-4 py-3.5 bg-gradient-to-r from-blue-700 to-indigo-900 border border-blue-500/30 text-white font-black rounded-xl hover:shadow-[0_0_20px_rgba(37,99,235,0.4)] focus:ring-4 focus:ring-blue-500/30 disabled:opacity-50 flex items-center justify-center gap-2 transition-all uppercase tracking-widest text-[11px]"
                                         >
                                             {forgotLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                            <span>{forgotLoading ? 'Sending...' : 'Send Reset Instructions'}</span>
+                                            <span>{forgotLoading ? t('btn_sending') : t('btn_send_reset')}</span>
                                         </button>
                                         <button
                                             type="button"
                                             onClick={() => { setIsForgotPassword(false); setForgotMessage({ type: '', text: '' }); }}
-                                            className="w-full px-4 py-3 bg-white border border-slate-300 text-slate-700 font-medium rounded-md hover:bg-slate-50 focus:ring-2 focus:ring-offset-1 disabled:opacity-50 flex items-center justify-center"
+                                            className="w-full px-4 py-3.5 bg-transparent border border-white/20 text-white font-bold rounded-xl hover:bg-white/5 focus:ring-4 focus:ring-white/10 disabled:opacity-50 flex items-center justify-center transition-all uppercase tracking-widest text-[11px]"
                                         >
-                                            Back to Login
+                                            {t('btn_back_to_login')}
                                         </button>
                                     </div>
                                 </form>
                             ) : (
-                                <form onSubmit={handleSubmit} noValidate>
-                                    <div className="mb-6">
-                                        <label htmlFor="username" className="block text-sm font-medium text-slate-700">{role === ROLES.OPERATOR ? 'Operator Username' : 'Admin Username'}</label>
+                                <form onSubmit={handleSubmit} noValidate className="relative z-10 space-y-5">
+                                    <div>
+                                        <label htmlFor="username" className="block text-[11px] font-bold text-slate-300 mb-1.5 tracking-wider uppercase">
+                                            {role === ROLES.OPERATOR ? t('operator_username_label') : t('admin_username_label')}
+                                        </label>
                                         <input
                                             id="username"
                                             type="text"
                                             required
                                             value={username}
                                             onChange={(e) => setUsername(e.target.value)}
-                                            className="mt-2 w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue outline-none"
-                                            placeholder={role === ROLES.OPERATOR ? 'operator@janmat.gov.in' : 'admin@janmat.gov.in'}
+                                            className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-400 outline-none transition-all placeholder:text-slate-500 text-white font-medium shadow-inner text-sm"
+                                            placeholder={role === ROLES.OPERATOR ? t('username_placeholder_operator') : t('username_placeholder_admin')}
                                         />
                                     </div>
 
-                                    <div className="mb-4">
-                                        <label htmlFor="password" className="block text-sm font-medium text-slate-700">Password</label>
-                                        <div className="relative mt-2">
+                                    <div>
+                                        <div className="flex justify-between items-end mb-1.5">
+                                            <label htmlFor="password" className="block text-[11px] font-bold text-slate-300 tracking-wider uppercase">{t('password_label')}</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => { setIsForgotPassword(true); setForgotUsername(username); }}
+                                                className="text-[10px] text-blue-400 font-bold hover:text-blue-300 transition-colors uppercase tracking-widest"
+                                            >
+                                                {t('forgot_password_link')}
+                                            </button>
+                                        </div>
+                                        <div className="relative">
                                             <input
                                                 id="password"
                                                 type={showPassword ? "text" : "password"}
                                                 required
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
-                                                className="w-full px-3 py-2 border rounded-md focus:ring-2 focus:ring-offset-1 focus:ring-janmat-blue outline-none pr-10"
-                                                placeholder="••••••••"
+                                                className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-400 outline-none transition-all pr-10 placeholder:text-slate-500 text-white font-medium shadow-inner text-sm"
+                                                placeholder={t('password_placeholder')}
                                             />
                                             <button
                                                 type="button"
                                                 onClick={() => setShowPassword(!showPassword)}
-                                                className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-500 hover:text-slate-700"
+                                                className="absolute inset-y-0 right-0 px-3 flex items-center text-slate-400 hover:text-white transition-colors"
                                             >
-                                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center justify-between mb-6">
-                                        <label className="inline-flex items-center text-sm">
-                                            <input type="checkbox" className="h-4 w-4 text-janmat-blue border-slate-300 rounded" />
-                                            <span className="ml-2 text-slate-700">Remember this device</span>
+                                    <div>
+                                        <label className="inline-flex items-center text-sm group cursor-pointer mt-1">
+                                            <input type="checkbox" className="h-4 w-4 bg-white/10 border-white/20 rounded focus:ring-blue-500/50 cursor-pointer text-blue-600" />
+                                            <span className="ml-3 text-slate-300 text-xs font-medium group-hover:text-white transition-colors">{t('remember_device')}</span>
                                         </label>
-                                        <button
-                                            type="button"
-                                            onClick={() => { setIsForgotPassword(true); setForgotUsername(username); }}
-                                            className="text-sm text-janmat-blue hover:underline"
-                                        >
-                                            Forgot Password?
-                                        </button>
                                     </div>
 
-                                    <div>
+                                    <div className="pt-2">
                                         <button
                                             type="submit"
                                             disabled={loading}
-                                            className="w-full px-4 py-3 bg-janmat-blue text-white font-medium rounded-md hover:bg-janmat-hover focus:ring-2 focus:ring-offset-1 disabled:opacity-50 flex items-center justify-center gap-2"
+                                            className="w-full px-4 py-3.5 bg-gradient-to-r from-blue-700 to-indigo-900 border border-blue-500/30 text-white font-black rounded-xl hover:shadow-[0_0_24px_rgba(37,99,235,0.4)] focus:ring-4 focus:ring-blue-500/30 disabled:opacity-50 flex items-center justify-center gap-2 transition-all uppercase tracking-[0.15em] text-[11px]"
                                         >
                                             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-                                            <span>{loading ? 'Signing in...' : 'Sign in'}</span>
+                                            <span>{loading ? t('signing_in') : t('sign_in')}</span>
                                         </button>
                                     </div>
 
                                     {error && (
-                                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-600 flex gap-2 items-start">
-                                            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                                        <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs font-bold text-red-300 flex gap-2 items-start animate-fade-in backdrop-blur-md">
+                                            <AlertCircle className="w-4 h-4 flex-shrink-0" strokeWidth={2} />
                                             <p>{error}</p>
                                         </div>
                                     )}
 
-                                    <p className="mt-4 text-xs text-slate-500">
-                                        Access is restricted to authorized Election Commission staff. All access is logged.
-                                    </p>
+                                    <div className="mt-6 pt-5 border-t border-white/10">
+                                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest text-center leading-relaxed">
+                                            {t('login_restricted_note')}
+                                        </p>
+                                    </div>
                                 </form>
                             )}
                         </div>

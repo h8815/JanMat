@@ -1,5 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React from 'react';
 import Landing from './pages/Landing';
+import About from './pages/About';
+import PolicyPage from './pages/PolicyPage';
+import ResourcesPage from './pages/ResourcesPage';
 import Login from './pages/auth/Login';
 import ForcePasswordChange from './pages/auth/ForcePasswordChange';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -11,11 +15,13 @@ import { NotificationProvider } from './context/NotificationContext';
 import { AuthProvider } from './context/AuthContext';
 
 import { ThemeProvider } from './context/ThemeContext';
+import { FontSizeProvider } from './context/FontSizeContext';
 import SessionMonitor from './components/common/SessionMonitor';
 import { ROLES } from './constants/roles';
 
 function App() {
   return (
+    <FontSizeProvider>
     <ThemeProvider>
       <Router>
         <AuthProvider>
@@ -23,6 +29,12 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/terms" element={<PolicyPage />} />
+            <Route path="/privacy" element={<PolicyPage />} />
+            <Route path="/copyright" element={<PolicyPage />} />
+            <Route path="/disclaimer" element={<PolicyPage />} />
+            <Route path="/resources" element={<ResourcesPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/setup-password" element={<ForcePasswordChange />} />
 
@@ -47,6 +59,7 @@ function App() {
         </AuthProvider>
       </Router>
     </ThemeProvider>
+    </FontSizeProvider>
   );
 }
 

@@ -8,6 +8,7 @@ urlpatterns = [
     path('biometric-scan/', views.biometric_scan, name='biometric_scan'),
     path('current-session/', views.current_session, name='current_session'),
     
-    # Health check
+    # Health & Public
     path('health/', views.health_check, name='verification_health_check'),
+    path('public-stats/', views.public_stats, name='public_stats'),
 ]

@@ -13,6 +13,7 @@ import FontSizeSwitcher from '../../components/common/FontSizeSwitcher';
 import SystemStatus from '../../components/common/SystemStatus';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
+import { useWebUSB } from '../../hooks/useWebUSB';
 import EmptyState from '../../components/common/EmptyState';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 
@@ -77,6 +78,10 @@ const OperatorDashboard = () => {
 
     const boothId = stats.booth_id || user?.booth_id || '—';
     const operatorName = user?.full_name || user?.name || 'Operator';
+    
+    // WebUSB Presentation Hook
+    const { isPlugged, requestDevice } = useWebUSB();
+    const biometricStatus = isPlugged ? "Ready" : "Not Active";
 
     return (
         <div className="min-h-screen bg-[#f4f6fa]">
@@ -107,7 +112,9 @@ const OperatorDashboard = () => {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap justify-end">
-                        <span className="hidden sm:block"><SystemStatus biometricStatus="Ready" /></span>
+                        <span className="hidden sm:block cursor-pointer" onDoubleClick={requestDevice} title="Double-click to set up USB Demo Device">
+                            <SystemStatus biometricStatus={biometricStatus} />
+                        </span>
                         <span className="hidden sm:block"><FontSizeSwitcher /></span>
                         <div className="h-4 w-px bg-slate-200 hidden sm:block" />
                         <LanguageSwitcher />

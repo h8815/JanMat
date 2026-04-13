@@ -88,7 +88,7 @@ class Command(BaseCommand):
 
         temp_password = _generate_password()
 
-        # ── Create account ────────────────────────────────────────────────────
+        # ── Create account and Send Email ─────────────────────────────────────
         try:
             superadmin = SuperAdmin.objects.create(
                 username=username,
@@ -100,57 +100,58 @@ class Command(BaseCommand):
                 must_change_password=True,
             )
         except Exception as exc:
-            self.stdout.write(self.style.ERROR(f'Failed to create account: {exc}'))
+            self.stdout.write(self.style.ERROR(f'\nERROR: Failed to establish SuperAdmin account.'))
+            self.stdout.write(self.style.ERROR(f'Reason: {exc}'))
             return
 
-        # ── Send credentials email ────────────────────────────────────────────
-        try:
-            subject = 'Welcome to JanMat — SuperAdmin Credentials'
-            message, html_message = get_welcome_email_template(
-                obj_name=name,
-                role='SuperAdmin',
-                username=username,
-                temp_pwd=temp_password,
-                creator_email='System',
-                creator_phone='N/A',
-            )
-            self.stdout.write(self.style.SUCCESS(
-                f'\n✔  SuperAdmin created successfully.'
-            ))
-            self.stdout.write(f'   Username : {username}')
-            self.stdout.write(f'   Email    : {email}')
-            self.stdout.write(
-                self.style.WARNING(
-                    '   The account requires a password change on first login.\n'
-                )
-            )
+        def rollback_user():
+            # Background callback executing if SMTP thread fails
+            try:
+                SuperAdmin.objects.filter(username=username).delete()
+                print(f"\n[!] SMTP delivery failed. SuperAdmin data for '{username}' was safely wiped from the database.")
+            except Exception as e:
+                print(f"\n[?] Warning: Could not cleanly roll back user '{username}': {e}")
 
-            self.stdout.write(
-                self.style.NOTICE(
-                    f'   [i] Sending credentials to {email} via secure SMTP...'
-                )
+        # ── Send credentials email ────────────────────────────────────────────
+        subject = 'Welcome to JanMat — SuperAdmin Credentials'
+        message, html_message = get_welcome_email_template(
+            obj_name=name,
+            role='SuperAdmin',
+            username=username,
+            temp_pwd=temp_password,
+            creator_email='System',
+            creator_phone='N/A',
+        )
+        
+        self.stdout.write(
+            self.style.NOTICE(
+                f'   [i] Sending credentials to {email} via secure SMTP (background dispatch)...'
             )
-            # Create attachments
-            attachments = {
-                'logo': os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'mail.png')
-            }
-            # Start email thread
-            send_mail_async(
-                subject,
-                message,
-                [email],
-                html_message=html_message,
-                attachments=attachments,
+        )
+        
+        # Create attachments
+        attachments = {
+            'logo': os.path.join(settings.BASE_DIR, 'static', 'assets', 'images', 'mail.png')
+        }
+        
+        # Dispatch asynchronously to return prompt quickly, but pass rollback callback
+        send_mail_async(
+            subject,
+            message,
+            [email],
+            html_message=html_message,
+            attachments=attachments,
+            on_failure=rollback_user
+        )
+
+        # Print success immediately while thread processes
+        self.stdout.write(self.style.SUCCESS(
+            f'\n✔  SuperAdmin setup initiated successfully.'
+        ))
+        self.stdout.write(f'   Username : {username}')
+        self.stdout.write(f'   Email    : {email}')
+        self.stdout.write(
+            self.style.WARNING(
+                '   The account requires a password change on first login.\n'
             )
-            self.stdout.write(
-                self.style.NOTICE(
-                    '   [i] Email thread dispatched. Awaiting final SMTP handshake before exiting terminal...'
-                )
-            )
-        except Exception as exc:
-            # Account was created; warn but don't fail
-            self.stdout.write(self.style.WARNING(
-                f'Account created but email failed: {exc}\n'
-                f'Temporary password: {temp_password}\n'
-                f'Username: {username}'
-            ))
+        )

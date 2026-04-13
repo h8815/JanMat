@@ -1,12 +1,14 @@
 from accounts.constants import SystemRoles
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.utils import timezone
 from django.core.cache import cache
 import logging
 
+from accounts.models import Operator
+from fraud.models import FraudLog
 from .models import Voter
 from .services import AadhaarService, BiometricService, FraudDetectionService, AuditService
 
@@ -278,3 +280,26 @@ def current_session(request):
 @permission_classes([IsAuthenticated])
 def health_check(request):
     return Response({'status': 'healthy', 'time': timezone.now().isoformat()})
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_stats(request):
+    """Public endpoint for landing page statistics"""
+    try:
+        nodes_count = Operator.objects.filter(is_active=True).count()
+        verifications_count = Voter.objects.filter(has_voted=True).count()
+        fraud_count = FraudLog.objects.count()
+
+        return Response({
+            'nodes': nodes_count,
+            'verified': verifications_count,
+            'fraud': fraud_count
+        })
+    except Exception as e:
+        logger.error(f"Public stats error: {str(e)}")
+        # Fallback to static baseline if DB fails
+        return Response({
+            'nodes': 0,
+            'verified': 0,
+            'fraud': 0
+        })

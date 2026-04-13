@@ -41,13 +41,14 @@ def generate_temp_password(length=12):
             return pwd
 
 class EmailThread(threading.Thread):
-    def __init__(self, subject, message, recipient_list, from_email=None, html_message=None, attachments=None, **kwargs):
+    def __init__(self, subject, message, recipient_list, from_email=None, html_message=None, attachments=None, on_failure=None, **kwargs):
         self.subject = subject
         self.message = message
         self.recipient_list = recipient_list
         self.from_email = from_email or settings.DEFAULT_FROM_EMAIL
         self.html_message = html_message
         self.attachments = attachments or {}
+        self.on_failure = on_failure
         self.kwargs = kwargs
         threading.Thread.__init__(self)
 
@@ -69,9 +70,33 @@ class EmailThread(threading.Thread):
             logger.info(f"Email sent to {self.recipient_list}")
         except Exception as e:
             logger.error(f"Email failed: {str(e)}")
+            if self.on_failure:
+                try:
+                    self.on_failure()
+                except Exception as cb_err:
+                    logger.error(f"Callback failed: {str(cb_err)}")
 
-def send_mail_async(subject, message, recipient_list, from_email=None, html_message=None, attachments=None, **kwargs):
-    EmailThread(subject, message, recipient_list, from_email, html_message, attachments, **kwargs).start()
+def send_mail_sync(subject, message, recipient_list, from_email=None, html_message=None, attachments=None, **kwargs):
+    """Synchronous version of send_mail to be used inside atomic transactions."""
+    from_email = from_email or settings.DEFAULT_FROM_EMAIL
+    attachments = attachments or {}
+    msg = EmailMultiAlternatives(
+        subject, message, from_email, recipient_list, **kwargs
+    )
+    if html_message:
+        for cid, path in attachments.items():
+            if os.path.exists(path):
+                with open(path, 'rb') as f:
+                    msg_img = MIMEImage(f.read())
+                    msg_img.add_header('Content-ID', f'<{cid}>')
+                    msg_img.add_header('Content-Disposition', 'inline', filename=os.path.basename(path))
+                    msg.attach(msg_img)
+        msg.attach_alternative(html_message, "text/html")
+    msg.send()
+    logger.info(f"Email sent to {recipient_list}")
+
+def send_mail_async(subject, message, recipient_list, from_email=None, html_message=None, attachments=None, on_failure=None, **kwargs):
+    EmailThread(subject, message, recipient_list, from_email, html_message, attachments, on_failure=on_failure, **kwargs).start()
 
 def get_welcome_email_template(obj_name, role, username, temp_pwd, creator_email, creator_phone, booth_id=None):
     """

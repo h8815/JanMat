@@ -12,6 +12,7 @@ import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import FontSizeSwitcher from '../../components/common/FontSizeSwitcher';
 import SystemStatus from '../../components/common/SystemStatus';
 import Breadcrumbs from '../../components/common/Breadcrumbs';
+import { useWebUSB } from '../../hooks/useWebUSB';
 
 /*
  * OPERATOR VOTER VERIFICATION
@@ -21,7 +22,7 @@ import Breadcrumbs from '../../components/common/Breadcrumbs';
  */
 
 // ─── HEADER COMPONENT (Extracted to prevent remounts) ───
-const VerificationHeader = ({ operatorName, boothId, t, user, hardwareStatus }) => (
+const VerificationHeader = ({ operatorName, boothId, t, user, hardwareStatus, requestDevice }) => (
     <>
         <div className="h-1.5 w-full flex">
             <div className="flex-1 bg-[#FF9933]" />
@@ -43,7 +44,9 @@ const VerificationHeader = ({ operatorName, boothId, t, user, hardwareStatus }) 
                         <span className="text-[10px] text-slate-400 font-medium">Last Login</span>
                         <span className="text-xs text-slate-600 font-semibold">{user?.last_login ? new Date(user.last_login).toLocaleString() : 'Just now'}</span>
                     </div>
-                    <span className="hidden sm:block"><SystemStatus biometricStatus={hardwareStatus} /></span>
+                    <span className="hidden sm:block cursor-pointer" onDoubleClick={requestDevice} title="Double-click to set up USB Demo Device">
+                        <SystemStatus biometricStatus={hardwareStatus} />
+                    </span>
                     <span className="hidden sm:block"><FontSizeSwitcher /></span>
                     <div className="h-4 w-px bg-slate-200 hidden sm:block" />
                     <LanguageSwitcher />
@@ -88,12 +91,18 @@ const VoterVerification = () => {
     const [scanQuality, setScanQuality] = useState(0);
     const scanTimeoutRef = useRef(null);
 
-    // Simulate Hardware Connection on component mount
+    const { isPlugged, requestDevice } = useWebUSB();
+
+    // Hardware Connection Hook
     useEffect(() => {
-        const timer1 = setTimeout(() => setHardwareStatus('Connected'), 1200);
-        const timer2 = setTimeout(() => setHardwareStatus('Ready'), 2800);
-        return () => { clearTimeout(timer1); clearTimeout(timer2); clearTimeout(scanTimeoutRef.current); };
-    }, []);
+        if (isPlugged) {
+            setHardwareStatus('Ready');
+        } else {
+            setHardwareStatus('Offline');
+            setScanState('idle'); // Interrupt actively running scan if ripped out
+        }
+        return () => { clearTimeout(scanTimeoutRef.current); };
+    }, [isPlugged]);
 
     // Fraud alert
     const [fraudAlert, setFraudAlert] = useState(null);
@@ -411,7 +420,7 @@ const VoterVerification = () => {
         return (
             <div className="min-h-screen bg-[#f4f6fa] flex flex-col items-stretch">
                 <Toaster position="top-center" />
-                <VerificationHeader operatorName={operatorName} boothId={boothId} t={t} user={user} hardwareStatus={hardwareStatus} />
+                <VerificationHeader operatorName={operatorName} boothId={boothId} t={t} user={user} hardwareStatus={hardwareStatus} requestDevice={requestDevice} />
 
                 <main className="max-w-5xl mx-auto p-4 sm:p-6 mt-4">
                     <Breadcrumbs />
@@ -615,7 +624,7 @@ const VoterVerification = () => {
         return (
             <div className="min-h-screen bg-[#f3f4f6] flex flex-col items-stretch">
                 <Toaster position="top-center" />
-                <VerificationHeader operatorName={operatorName} boothId={boothId} t={t} user={user} hardwareStatus={hardwareStatus} />
+                <VerificationHeader operatorName={operatorName} boothId={boothId} t={t} user={user} hardwareStatus={hardwareStatus} requestDevice={requestDevice} />
 
                 <main className="max-w-6xl mx-auto p-4 sm:p-6 mt-4">
                     {/* Top Navigation Progress Bar */}
