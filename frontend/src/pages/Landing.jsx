@@ -13,8 +13,8 @@ const Landing = () => {
     const [stats, setStats] = useState({ nodes: '0+', verified: '0', fraud: '0' });
 
     const backgrounds = [
-        '/assets/images/indiaGate.png',
-        '/assets/images/votebg.png'
+        '/assets/images/indiaGate.webp',
+        '/assets/images/votebg.webp'
     ];
 
     useEffect(() => {
@@ -68,7 +68,7 @@ const Landing = () => {
                     <div className="text-center w-full max-w-6xl mx-auto flex flex-col items-center">
                         <div className="flex flex-col items-center">
                             <img
-                                src="/assets/images/janmat.png"
+                                src="/assets/images/janmat.webp"
                                 alt="JanMat Portal"
                                 className="w-48 sm:w-64 md:w-80 lg:w-[24rem] h-auto object-contain drop-shadow-[0_8px_32px_rgba(0,0,0,0.8)] mb-8"
                             />

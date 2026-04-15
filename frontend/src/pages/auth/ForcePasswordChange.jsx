@@ -104,7 +104,7 @@ const ForcePasswordChange = () => {
     return (
         <div className="min-h-screen relative font-sans overflow-x-hidden overflow-y-auto bg-slate-950 flex flex-col justify-center">
             {/* Cinematic Background */}
-            <div className="fixed inset-0 bg-[url('/assets/images/indiaGate.png')] bg-cover bg-center opacity-30"></div>
+            <div className="fixed inset-0 bg-[url('/assets/images/indiaGate.webp')] bg-cover bg-center opacity-30"></div>
             <div className="fixed inset-0 bg-gradient-to-r from-slate-950/90 via-slate-950/70 to-transparent"></div>
 
             <main className="relative z-10 flex items-center justify-center p-4 md:p-8 w-full max-w-[1400px] mx-auto min-h-screen">
@@ -113,7 +113,7 @@ const ForcePasswordChange = () => {
                     {/* Left Side: Branding & Asymmetrical Void */}
                     <div className="lg:col-span-5 md:pr-8 text-center lg:text-left pt-6 lg:pt-0">
                         <img
-                            src="/assets/images/ashoka.png"
+                            src="/assets/images/ashoka.webp"
                             alt="Ashoka Emblem"
                             className="mx-auto lg:mx-0 w-20 h-20 lg:w-28 lg:h-28 object-contain brightness-0 invert drop-shadow-md"
                             onError={(e) => { e.target.src = 'https://placehold.co/128x128?text=Emblem'; }}

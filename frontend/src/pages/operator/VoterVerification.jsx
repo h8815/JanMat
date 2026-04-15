@@ -32,7 +32,7 @@ const VerificationHeader = ({ operatorName, boothId, t, user, hardwareStatus, re
         <header className="bg-white border-b border-slate-200 shadow-sm relative z-50">
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
                 <div className="flex items-center gap-3">
-                    <img src="/assets/images/ashoka-black.png" alt="Emblem" className="w-8 h-8 object-contain"
+                    <img src="/assets/images/ashoka-black.webp" alt="Emblem" className="w-8 h-8 object-contain"
                         onError={e => { e.target.src = 'https://placehold.co/32x32?text=🏛️'; }} />
                     <div className="border-l border-slate-200 pl-3">
                         <p className="text-sm font-bold text-slate-800">{operatorName} — Booth {boothId}</p>
@@ -350,7 +350,7 @@ const VoterVerification = () => {
             <div className={`border rounded-lg overflow-hidden ${isSmall ? 'border-slate-300' : 'border-slate-200'}`}>
                 {/* Header */}
                 <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-100">
-                    <img src="/assets/images/ashoka-black.png" alt="Emblem" className="w-6 h-6 object-contain"
+                    <img src="/assets/images/ashoka-black.webp" alt="Emblem" className="w-6 h-6 object-contain"
                         onError={e => { e.target.src = 'https://placehold.co/24x24?text=🏛️'; }} />
                     <div className="text-right">
                         <p className="text-[10px] text-orange-600 font-bold leading-tight">{t('govt_of_india_hi')}</p>

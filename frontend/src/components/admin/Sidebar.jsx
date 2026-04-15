@@ -61,7 +61,7 @@ const Sidebar = ({ activeTab, setActiveTab, user, logout, isOpen, onClose, isCol
                     {/* Logo/Title */}
                     <div className="flex items-center gap-3 overflow-hidden">
                         <div className="bg-orange-50 p-1.5 rounded-lg flex-shrink-0 border border-orange-100 dark:bg-slate-700 dark:border-slate-600">
-                            <img src="/assets/images/ashoka.png" alt="Emblem" className="h-6 w-6 object-contain" />
+                            <img src="/assets/images/ashoka.webp" alt="Emblem" className="h-6 w-6 object-contain" />
                         </div>
 
                         {/* Text: Hidden on Desktop if collapsed, visible on Mobile */}

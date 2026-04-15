@@ -97,7 +97,7 @@ const OperatorDashboard = () => {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <img
-                            src="/assets/images/ashoka-black.png"
+                            src="/assets/images/ashoka-black.webp"
                             alt="Emblem"
                             className="w-9 h-9 object-contain"
                             onError={(e) => { e.target.src = 'https://placehold.co/36x36?text=🏛️'; }}

@@ -43,7 +43,7 @@ const TopBar = ({ variant = 'landing' }) => {
                 {!isLanding && (
                     <Link to="/" className="flex-shrink-0">
                         <img
-                            src="/assets/images/janmat.png"
+                            src="/assets/images/janmat.webp"
                             alt="JanMat Portal"
                             className="h-16 md:h-20 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
                         />

@@ -11,7 +11,7 @@ const Footer = () => {
                 <div className="flex flex-col md:flex-row justify-between items-start gap-8 mb-8">
                     <div className="max-w-md">
                         <h2 className="text-white text-lg font-bold mb-4 flex items-center gap-3">
-                            <img src="/assets/images/janmat.png" alt="JanMat" className="h-8 drop-shadow-md brightness-200" />
+                            <img src="/assets/images/janmat.webp" alt="JanMat" className="h-8 drop-shadow-md brightness-200" />
                         </h2>
                         <p className="mb-4 mt-2 text-slate-400 font-medium">{t('footer_desc')}</p>
                         <p className="text-xs text-slate-500 font-mono">{t('footer_version')}</p>
